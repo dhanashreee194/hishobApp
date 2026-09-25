@@ -1,0 +1,16 @@
+Title
+Maza Hishob
+
+Short description
+Offline Marathi accounts for mill, vegetables, milk and credit.
+
+Full description
+Maza Hishob (माझा हिशोब) is an offline-first ledger for a household business that runs a flour mill, sells vegetables, buys milk, and tracks customer credit.
+
+Keep daily sales, expenses, milk purchases, flour grinding, and udhari on the phone. Totals use exact rupees. Dates are shown as DD/MM/YYYY and amounts use Indian grouping.
+
+Partner settlement shows the shared net, the partner share, payments, and what is still payable. Reports cover daily, monthly, yearly, and progressive periods.
+
+The app works without a network. Optional phone sign-in can sync and back up to your own Supabase project. Local backup files are encrypted. An optional PIN or fingerprint locks the app when it opens.
+
+Deleted money records stay recoverable from Settings. Nothing in this listing replaces your own review on a real phone before a production release.

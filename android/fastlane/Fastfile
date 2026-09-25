@@ -1,0 +1,15 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build the signed release bundle. This lane does not upload to Play Console."
+  lane :bundle do
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: ".",
+      properties: {
+        "reactNativeArchitectures" => "arm64-v8a",
+      },
+    )
+  end
+end

@@ -1,0 +1,21 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/NotoSansDevanagari-Bold.ttf",
+      "sha1": "8e646c1d59bea88577e31cf3a2033a4a700bee9c"
+    },
+    {
+      "path": "assets/fonts/NotoSansDevanagari-Medium.ttf",
+      "sha1": "58ae3d6e51e6e519f9a6f71a27cc6764c6eb8b7d"
+    },
+    {
+      "path": "assets/fonts/NotoSansDevanagari-Regular.ttf",
+      "sha1": "37601f68cb430df744a4410035261cdf99404c88"
+    },
+    {
+      "path": "assets/fonts/NotoSansDevanagari-SemiBold.ttf",
+      "sha1": "72763fcf16c0a91fe1916052b1483c368b29cc9a"
+    }
+  ]
+}

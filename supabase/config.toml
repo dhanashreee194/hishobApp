@@ -1,0 +1,9 @@
+project_id = "mazahishob"
+
+[functions.udhari-reminder]
+verify_jwt = true
+
+[functions.nightly-backup]
+verify_jwt = true
+# 23:30 IST. The phone also takes a backup the first time it is opened each day.
+schedule = "0 18 * * *"

@@ -1,0 +1,12 @@
+Internal testing only. Do not promote this build to production until the owner has used it on a real device for about a week without issues.
+
+Version 1.0.0 (versionCode 1)
+- Optional PIN or fingerprint lock when the app opens
+- Deleted money records can be restored from Settings
+- Local backup files are encrypted
+- Marathi labels, DD/MM/YYYY dates, and Indian rupee grouping
+- Long lists virtualize, and customer, date, and grain lookups are indexed
+
+Play Console upload and production promotion are not done from this workspace. They need the owner's Play Console account. CodePush is not included; small script fixes still need a store build until an App Center app exists.
+
+The release keystore and android/keystore.properties stay on this machine and are gitignored. Back them up before reinstalling the computer. Losing them blocks later updates of this app on Play.
