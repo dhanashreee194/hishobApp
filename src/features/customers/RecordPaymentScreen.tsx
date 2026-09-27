@@ -3,9 +3,7 @@ import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import React, {useEffect, useState} from 'react';
 import {Controller, useForm} from 'react-hook-form';
-import {Alert, FlatList, StyleSheet, Text, View} from 'react-native';
-import {paidText, openWhatsApp} from '../../domain/whatsapp';
-import {useLocale} from '../../i18n/locale';
+import {FlatList, StyleSheet, Text, View} from 'react-native';
 import {z} from 'zod';
 import {
   Button,
@@ -27,7 +25,7 @@ import {LedgerError, moneyNumber, parseNumber, roundMoney, sumAmounts} from '../
 import {positiveNumber} from '../../forms/fields';
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {RootStackParamList} from '../../navigation/types';
-import {colors, fonts, formatInr, spacing} from '../../theme';
+import {colors, fonts, spacing} from '../../theme';
 
 const schema = z.object({
   mode: z.enum(['full', 'partial']),
@@ -41,7 +39,6 @@ type Values = z.infer<typeof schema>;
 export function RecordPaymentScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'RecordPayment'>>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const locale = useLocale(state => state.locale);
   const [date, setDate] = useState(() => new Date());
   const [formError, setFormError] = useState<string | null>(null);
   const ledger = useAsyncData(
@@ -108,32 +105,6 @@ export function RecordPaymentScreen() {
           paymentMode: values.paymentMode,
           notes: values.notes,
         });
-      }
-      const mobile = ledger.data.customer?.mobile;
-      const name = ledger.data.customer?.name ?? '';
-      if (!entryId && mobile) {
-        Alert.alert(
-          locale === 'en' ? 'Payment saved' : 'पेमेंट जतन झाले',
-          locale === 'en'
-            ? 'Send a WhatsApp that the payment was received?'
-            : 'जमा झाल्याचा WhatsApp पाठवायचा?',
-          [
-            {
-              text: locale === 'en' ? 'Not now' : 'नको',
-              style: 'cancel',
-              onPress: () => navigation.goBack(),
-            },
-            {
-              text: 'WhatsApp',
-              onPress: () => {
-                openWhatsApp(mobile, paidText(locale, name, formatInr(amount))).finally(() =>
-                  navigation.goBack(),
-                );
-              },
-            },
-          ],
-        );
-        return;
       }
       navigation.goBack();
     } catch (error) {

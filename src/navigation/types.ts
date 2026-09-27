@@ -29,6 +29,4 @@ export type RootStackParamList = {
   PartnerSettlement: {partnerId?: string} | undefined;
   Settings: undefined;
   DeletedRecords: undefined;
-  Businesses: undefined;
-  BusinessWorkspace: {businessId: string};
 };

@@ -24,11 +24,6 @@ const TABLES = [
   'partner_payments',
   'partner_settlements',
   'stock_movements',
-  'catalog_products',
-  'product_moves',
-  'business_expenses',
-  'partner_scopes',
-  'collaborators',
   'backup_records',
 ];
 

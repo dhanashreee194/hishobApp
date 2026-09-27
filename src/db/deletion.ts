@@ -11,8 +11,6 @@ const deletable = new Set([
   'partner_payments',
   'partner_settlements',
   'stock_movements',
-  'product_moves',
-  'business_expenses',
 ]);
 
 const children: Record<string, {table: string; column: string}> = {
@@ -35,8 +33,6 @@ const deletedSources: Array<{
   {table: 'partner_payments', title: 'भागीदार पेमेंट', dateKey: 'date', amountKey: 'amount', detailKey: 'notes'},
   {table: 'partner_settlements', title: 'भागीदारी हिशोब', dateKey: 'created_at', amountKey: 'remaining', detailKey: 'period'},
   {table: 'stock_movements', title: 'साठा', dateKey: 'date', amountKey: null, detailKey: 'notes'},
-  {table: 'product_moves', title: 'धंदा नोंद', dateKey: 'date', amountKey: 'amount', detailKey: 'notes'},
-  {table: 'business_expenses', title: 'धंदा खर्च', dateKey: 'date', amountKey: 'amount', detailKey: 'notes'},
 ];
 
 export type DeletedRecord = {
@@ -109,7 +105,7 @@ async function relatedRows(database: Database, table: string, id: string): Promi
   if (child) {
     rows.push(...(await database.get(child.table).query(Q.where(child.column, id)).fetch()));
   }
-  if (table === 'flour_transactions' || table === 'product_moves') {
+  if (table === 'flour_transactions') {
     rows.push(
       ...(await database
         .get('customer_ledger_entries')

@@ -1,19 +1,13 @@
 import {appSchema, tableSchema} from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 9,
+  version: 8,
   tables: [
     tableSchema({
       name: 'businesses',
       columns: [
         {name: 'name', type: 'string'},
         {name: 'type', type: 'string', isIndexed: true},
-        {name: 'tracking', type: 'string', isIndexed: true},
-        {name: 'buys', type: 'boolean'},
-        {name: 'produces', type: 'boolean'},
-        {name: 'sells', type: 'boolean'},
-        {name: 'tracks_credit', type: 'boolean'},
-        {name: 'tracks_billing', type: 'boolean'},
         {name: 'active', type: 'boolean'},
         {name: 'updated_at', type: 'number'},
       ],
@@ -231,70 +225,6 @@ export const schema = appSchema({
         {name: 'is_deleted', type: 'boolean', isIndexed: true},
         {name: 'created_at', type: 'number', isIndexed: true},
         {name: 'created_by', type: 'string', isOptional: true},
-        {name: 'updated_at', type: 'number'},
-      ],
-    }),
-    tableSchema({
-      name: 'catalog_products',
-      columns: [
-        {name: 'business_id', type: 'string', isIndexed: true},
-        {name: 'name', type: 'string'},
-        {name: 'unit', type: 'string'},
-        {name: 'kind', type: 'string'},
-        {name: 'active', type: 'boolean'},
-        {name: 'updated_at', type: 'number'},
-      ],
-    }),
-    tableSchema({
-      name: 'product_moves',
-      columns: [
-        {name: 'date', type: 'number', isIndexed: true},
-        {name: 'business_id', type: 'string', isIndexed: true},
-        {name: 'product_id', type: 'string', isIndexed: true},
-        {name: 'direction', type: 'string', isIndexed: true},
-        {name: 'quantity', type: 'number'},
-        {name: 'unit', type: 'string'},
-        {name: 'amount', type: 'number'},
-        {name: 'paid_amount', type: 'number'},
-        {name: 'customer_id', type: 'string', isOptional: true, isIndexed: true},
-        {name: 'notes', type: 'string', isOptional: true},
-        {name: 'is_deleted', type: 'boolean', isIndexed: true},
-        {name: 'created_at', type: 'number', isIndexed: true},
-        {name: 'created_by', type: 'string', isOptional: true},
-        {name: 'updated_at', type: 'number'},
-      ],
-    }),
-    tableSchema({
-      name: 'business_expenses',
-      columns: [
-        {name: 'date', type: 'number', isIndexed: true},
-        {name: 'business_id', type: 'string', isIndexed: true},
-        {name: 'kind', type: 'string', isIndexed: true},
-        {name: 'amount', type: 'number'},
-        {name: 'notes', type: 'string', isOptional: true},
-        {name: 'is_deleted', type: 'boolean', isIndexed: true},
-        {name: 'created_at', type: 'number', isIndexed: true},
-        {name: 'created_by', type: 'string', isOptional: true},
-        {name: 'updated_at', type: 'number'},
-      ],
-    }),
-    tableSchema({
-      name: 'partner_scopes',
-      columns: [
-        {name: 'partner_id', type: 'string', isIndexed: true},
-        {name: 'business_id', type: 'string', isIndexed: true},
-        {name: 'product_id', type: 'string', isOptional: true, isIndexed: true},
-        {name: 'updated_at', type: 'number'},
-      ],
-    }),
-    tableSchema({
-      name: 'collaborators',
-      columns: [
-        {name: 'name', type: 'string'},
-        {name: 'phone', type: 'string', isIndexed: true},
-        {name: 'business_id', type: 'string', isIndexed: true},
-        {name: 'product_id', type: 'string', isOptional: true, isIndexed: true},
-        {name: 'active', type: 'boolean'},
         {name: 'updated_at', type: 'number'},
       ],
     }),

@@ -19,7 +19,6 @@ import {useSyncStatus} from '../../sync/status';
 import {colors, fonts, spacing} from '../../theme';
 
 type ProfileRoute =
-  | 'Businesses'
   | 'VegetableMaster'
   | 'LabourMaster'
   | 'GrainMaster'
@@ -45,7 +44,6 @@ export function ProfileScreen() {
     route: ProfileRoute;
     hidden?: boolean;
   }> = [
-    {label: copy.myBusinesses, icon: ListIcon, route: 'Businesses'},
     {label: copy.vegetableList, icon: VegIcon, route: 'VegetableMaster'},
     {label: copy.labour, icon: ListIcon, route: 'LabourMaster'},
     {label: copy.grains, icon: MillIcon, route: 'GrainMaster'},

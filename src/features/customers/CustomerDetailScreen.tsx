@@ -2,8 +2,6 @@ import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
-import {dueText, openWhatsApp, paidText} from '../../domain/whatsapp';
-import {useCopy, useLocale} from '../../i18n/locale';
 import {Button, RecordCard, RecordList} from '../../components';
 import {database} from '../../db';
 import {loadLedger} from '../../db/reads';
@@ -21,9 +19,6 @@ export function CustomerDetailScreen() {
     {customer: null, lines: []},
   );
   const customer = ledger.data.customer;
-  const copy = useCopy();
-  const locale = useLocale(state => state.locale);
-  const latestPayment = ledger.data.lines.find(line => line.type === 'payment');
 
   return (
     <RecordList
@@ -74,34 +69,6 @@ export function CustomerDetailScreen() {
             label="ग्राहक सुधारा"
             variant="secondary"
             onPress={() => navigation.navigate('CustomerForm', {customerId: route.params.customerId})}
-          />
-          <Button
-            label={copy.whatsappDue}
-            variant="secondary"
-            disabled={!customer?.mobile || (customer.balance ?? 0) <= 0}
-            onPress={() => {
-              if (!customer?.mobile) {
-                return;
-              }
-              openWhatsApp(
-                customer.mobile,
-                dueText(locale, customer.name, formatInr(customer.balance)),
-              );
-            }}
-          />
-          <Button
-            label={copy.whatsappPaid}
-            variant="secondary"
-            disabled={!customer?.mobile || !latestPayment}
-            onPress={() => {
-              if (!customer?.mobile || !latestPayment) {
-                return;
-              }
-              openWhatsApp(
-                customer.mobile,
-                paidText(locale, customer.name, formatInr(latestPayment.amount)),
-              );
-            }}
           />
           <Button
             label="पेमेंट नोंदवा"

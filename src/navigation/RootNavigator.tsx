@@ -34,8 +34,6 @@ import {
 } from '../components/Icons';
 import {LanguageButton} from '../features/profile/LanguageButton';
 import {ProfileScreen} from '../features/profile/ProfileScreen';
-import {BusinessesScreen} from '../features/businesses/BusinessesScreen';
-import {BusinessWorkspaceScreen} from '../features/businesses/BusinessWorkspaceScreen';
 import {RootStackParamList, TabParamList} from './types';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -153,12 +151,6 @@ export function RootNavigator() {
         name="DeletedRecords"
         component={DeletedRecordsScreen}
         options={{title: copy.deleted}}
-      />
-      <Stack.Screen name="Businesses" component={BusinessesScreen} options={{title: copy.myBusinesses}} />
-      <Stack.Screen
-        name="BusinessWorkspace"
-        component={BusinessWorkspaceScreen}
-        options={{title: copy.workspace}}
       />
     </Stack.Navigator>
   );

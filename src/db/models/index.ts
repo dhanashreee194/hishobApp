@@ -1,8 +1,5 @@
 import {BackupRecord} from './BackupRecord';
 import {Business} from './Business';
-import {BusinessExpense} from './BusinessExpense';
-import {CatalogProduct} from './CatalogProduct';
-import {Collaborator} from './Collaborator';
 import {Customer} from './Customer';
 import {CustomerLedgerEntry} from './CustomerLedgerEntry';
 import {Expense} from './Expense';
@@ -13,9 +10,7 @@ import {GrainMaster} from './GrainMaster';
 import {MilkEntry} from './MilkEntry';
 import {Partner} from './Partner';
 import {PartnerPayment} from './PartnerPayment';
-import {PartnerScope} from './PartnerScope';
 import {PartnerSettlement} from './PartnerSettlement';
-import {ProductMove} from './ProductMove';
 import {RateHistory} from './RateHistory';
 import {StockMovement} from './StockMovement';
 import {User} from './User';
@@ -25,11 +20,6 @@ import {VegetableSaleItem} from './VegetableSaleItem';
 
 export const modelClasses = [
   Business,
-  CatalogProduct,
-  ProductMove,
-  BusinessExpense,
-  PartnerScope,
-  Collaborator,
   User,
   VegetableMaster,
   GrainMaster,
@@ -45,7 +35,6 @@ export const modelClasses = [
   MilkEntry,
   Partner,
   PartnerPayment,
-  PartnerScope,
   PartnerSettlement,
   StockMovement,
   BackupRecord,
@@ -54,9 +43,6 @@ export const modelClasses = [
 export {
   BackupRecord,
   Business,
-  BusinessExpense,
-  CatalogProduct,
-  Collaborator,
   Customer,
   CustomerLedgerEntry,
   Expense,
@@ -67,9 +53,7 @@ export {
   MilkEntry,
   Partner,
   PartnerPayment,
-  PartnerScope,
   PartnerSettlement,
-  ProductMove,
   RateHistory,
   StockMovement,
   User,
