@@ -2,6 +2,7 @@ import React, {useEffect} from 'react';
 import {Controller} from 'react-hook-form';
 import {StyleSheet, Text, TextInput, View} from 'react-native';
 import {lineTotal, useAmountLineForm} from '../forms/amount';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, formatInr, spacing, typography} from '../theme';
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function AmountInput({unit = 'किलो', onTotalChange}: Props) {
+  const tx = useTx();
   const form = useAmountLineForm();
   const quantity = form.watch('quantity');
   const rate = form.watch('rate');
@@ -24,11 +26,11 @@ export function AmountInput({unit = 'किलो', onTotalChange}: Props) {
       <Field
         control={form.control}
         name="quantity"
-        label={`प्रमाण (${unit})`}
+        label={tx(`प्रमाण (${unit})`)}
       />
-      <Field control={form.control} name="rate" label="दर (₹)" />
+      <Field control={form.control} name="rate" label={tx('दर (₹)')} />
       <View style={styles.totalBox}>
-        <Text style={styles.totalLabel}>सेव्ह करण्यापूर्वी एकूण</Text>
+        <Text style={styles.totalLabel}>{tx('सेव्ह करण्यापूर्वी एकूण')}</Text>
         <Text style={typography.amount}>
           {total == null ? '—' : formatInr(total)}
         </Text>
@@ -46,6 +48,7 @@ function Field({
   name: 'quantity' | 'rate';
   label: string;
 }) {
+  const tx = useTx();
   return (
     <Controller
       control={control}
@@ -64,7 +67,7 @@ function Field({
             style={styles.input}
           />
           {fieldState.error?.message ? (
-            <Text style={styles.error}>{fieldState.error.message}</Text>
+            <Text style={styles.error}>{tx(fieldState.error.message)}</Text>
           ) : null}
         </View>
       )}

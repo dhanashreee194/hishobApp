@@ -1,6 +1,7 @@
 import {endOfDay, startOfDay} from './dates';
 import {formatIndianDate} from '../theme/format';
 import {
+  compareMoney,
   money,
   netAmount,
   sumAmounts,
@@ -13,6 +14,18 @@ export type PeriodKind = 'day' | 'month' | 'year' | 'progressive';
 export type DatedAmount = {
   date: number;
   amount: string;
+};
+
+export type ProductSale = DatedAmount & {
+  productId: string;
+  businessType: string;
+};
+
+export type PartnerScope = {
+  businessType: string;
+  sharePercent: string;
+  active: boolean;
+  productIds: string[];
 };
 
 export type FlourPoint = {
@@ -368,16 +381,57 @@ export function buildUdhariReport(
   };
 }
 
-/** Shared sales exist only for vegetables. Expenses count only in the partner's business. */
+/**
+ * A partner counts in one business. Chosen products limit the share to those
+ * lines. With no products, vegetables use shared sales and that business's
+ * shared expenses; mill, milk, and other use only that business's shared expenses.
+ */
 export function scopePartnerBooks(
   businessType: string,
   sales: DatedAmount[],
   expenses: Array<DatedAmount & {businessType: string}>,
+  productIds: string[] = [],
+  productSales: ProductSale[] = [],
 ): {sales: DatedAmount[]; expenses: DatedAmount[]} {
+  if (productIds.length > 0) {
+    const chosen = new Set(productIds);
+    return {
+      sales: productSales.filter(
+        row => row.businessType === businessType && chosen.has(row.productId),
+      ),
+      expenses: [],
+    };
+  }
   return {
     sales: businessType === 'vegetable' ? sales : [],
     expenses: expenses.filter(row => row.businessType === businessType),
   };
+}
+
+/** Shares add up only inside one business, and only on the products they cover. */
+export function overloadedScopes(
+  partners: PartnerScope[],
+): Array<{businessType: string; productId: string | null; total: string}> {
+  const active = partners.filter(row => row.active);
+  const hits: Array<{businessType: string; productId: string | null; total: string}> = [];
+  for (const businessType of [...new Set(active.map(row => row.businessType))]) {
+    const group = active.filter(row => row.businessType === businessType);
+    const whole = group.filter(row => row.productIds.length === 0);
+    const wholeTotal = sumAmounts(whole.map(row => row.sharePercent));
+    if (whole.length > 0 && compareMoney(wholeTotal, 100) > 0) {
+      hits.push({businessType, productId: null, total: wholeTotal});
+    }
+    for (const productId of [...new Set(group.flatMap(row => row.productIds))]) {
+      const covering = group.filter(
+        row => row.productIds.length === 0 || row.productIds.includes(productId),
+      );
+      const total = sumAmounts(covering.map(row => row.sharePercent));
+      if (compareMoney(total, 100) > 0) {
+        hits.push({businessType, productId, total});
+      }
+    }
+  }
+  return hits;
 }
 
 export function buildPartnerReport(

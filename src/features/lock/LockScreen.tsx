@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {Button, TextField} from '../../components';
 import {biometryAvailable, readLock, unlockWithBiometric, unlockWithPin} from '../../security/lock';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, spacing, typography} from '../../theme';
 
 type Props = {
@@ -13,6 +14,7 @@ export function LockScreen({onUnlock}: Props) {
   const [error, setError] = useState<string | null>(null);
   const [biometric, setBiometric] = useState(false);
   const [busy, setBusy] = useState(false);
+  const tx = useTx();
 
   useEffect(() => {
     let cancelled = false;
@@ -48,8 +50,8 @@ export function LockScreen({onUnlock}: Props) {
 
   return (
     <View style={styles.screen}>
-      <Text style={typography.heading}>माझा हिशोब</Text>
-      <Text style={styles.help}>अॅप उघडण्यासाठी पिन टाका.</Text>
+      <Text style={typography.heading}>{tx('माझा हिशोब')}</Text>
+      <Text style={styles.help}>{tx('अॅप उघडण्यासाठी पिन टाका.')}</Text>
       <TextField
         label="पिन"
         value={pin}

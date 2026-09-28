@@ -1,5 +1,6 @@
 import {Database} from '@nozbe/watermelondb';
 import {startOfDay} from '../domain/dates';
+import {MILK_RATE_ITEM_ID} from '../domain/labels';
 import {LedgerError} from '../domain/money';
 import {RateHistory} from './models';
 
@@ -28,6 +29,20 @@ export async function rateOn(
     return from <= day && (to == null || to > day);
   });
   return match ? match.rate : null;
+}
+
+/** A supplier's own rate wins. The older single milk rate is only a fallback. */
+export async function milkRateOn(
+  database: Database,
+  supplier: string,
+  date: Date,
+): Promise<{rate: number | null; shared: boolean}> {
+  const own = await rateOn(database, 'milk', supplier, date);
+  if (own != null) {
+    return {rate: own, shared: false};
+  }
+  const shared = await rateOn(database, 'milk', MILK_RATE_ITEM_ID, date);
+  return {rate: shared, shared: shared != null};
 }
 
 /**

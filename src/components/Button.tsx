@@ -1,5 +1,6 @@
 import React from 'react';
 import {Pressable, StyleProp, StyleSheet, Text, ViewStyle} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, spacing} from '../theme';
 
 type Props = {
@@ -17,6 +18,7 @@ export function Button({
   disabled = false,
   style,
 }: Props) {
+  const tx = useTx();
   const primary = variant === 'primary';
 
   return (
@@ -33,7 +35,7 @@ export function Button({
         disabled ? styles.disabled : null,
       ]}>
       <Text style={[styles.label, primary ? styles.primaryLabel : styles.secondaryLabel]}>
-        {label}
+        {tx(label)}
       </Text>
     </Pressable>
   );

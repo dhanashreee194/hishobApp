@@ -6,11 +6,14 @@ import {z} from 'zod';
 import {Button, FormScreen, SelectField, TextField} from '../../components';
 import {database} from '../../db';
 import {loadReportSource} from '../../db/reportData';
+import {loadGrains, loadVegetables} from '../../db/reads';
 import {savePartner, setPartnerActive} from '../../db/writes';
-import {compareMoney, LedgerError, money, sumAmounts} from '../../domain/money';
+import {compareMoney, LedgerError, money} from '../../domain/money';
+import {overloadedScopes} from '../../domain/reports';
 import {PARTNER_BUSINESS_LABEL} from '../../domain/labels';
 import {requiredName} from '../../forms/fields';
 import {useAsyncData} from '../../hooks/useAsyncData';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, spacing} from '../../theme';
 
 const schema = z.object({
@@ -40,13 +43,29 @@ const BUSINESSES = (['vegetable', 'flour', 'milk', 'general'] as const).map(valu
 export function PartnerMasterScreen() {
   const partners = useAsyncData(() => loadReportSource(database).then(source => source.partners), []);
   const [editing, setEditing] = useState<string | null>(null);
+  const [productIds, setProductIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
+  const tx = useTx();
+  const vegetables = useAsyncData(() => loadVegetables(database), []);
+  const grains = useAsyncData(() => loadGrains(database), []);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {name: '', businessType: 'vegetable', sharePercent: ''},
     mode: 'onChange',
   });
-  const shareTotal = sumAmounts(partners.data.filter(row => row.active).map(row => row.sharePercent));
+  const businessType = form.watch('businessType');
+  const catalog =
+    businessType === 'vegetable'
+      ? vegetables.data.filter(row => row.active)
+      : businessType === 'flour'
+        ? grains.data.filter(row => row.active)
+        : [];
+  const overflows = overloadedScopes(partners.data);
+  function resetForm() {
+    setEditing(null);
+    setProductIds([]);
+    form.reset({name: '', businessType: 'vegetable', sharePercent: ''});
+  }
 
   async function submit(values: Values) {
     setFormError(null);
@@ -57,9 +76,9 @@ export function PartnerMasterScreen() {
         sharePercent: Number(money(values.sharePercent)),
         businessType: values.businessType,
         active: partners.data.find(row => row.id === editing)?.active ?? true,
+        productIds: values.businessType === 'vegetable' || values.businessType === 'flour' ? productIds : [],
       });
-      setEditing(null);
-      form.reset({name: '', businessType: 'vegetable', sharePercent: ''});
+      resetForm();
       await partners.reload();
     } catch (error) {
       setFormError(error instanceof LedgerError ? error.message : 'जतन करता आले नाही');
@@ -69,7 +88,9 @@ export function PartnerMasterScreen() {
   return (
     <FormScreen>
       <Text style={styles.help}>
-        वाटा फक्त निवडलेल्या धंद्यावर मोजला जातो. भाजीत सामाईक विक्री आणि त्या धंद्याचा सामाईक खर्च. गिरणी, दूध किंवा इतर निवडल्यास त्या धंद्याचा सामाईक खर्चच धरला जातो.
+        {tx(
+          'वाटा फक्त निवडलेल्या धंद्यावर मोजला जातो. भाजीत सामाईक विक्री आणि त्या धंद्याचा सामाईक खर्च. गिरणी, दूध किंवा इतर निवडल्यास त्या धंद्याचा सामाईक खर्चच धरला जातो.',
+        )}
       </Text>
       <Controller
         control={form.control}
@@ -90,11 +111,40 @@ export function PartnerMasterScreen() {
           <SelectField
             label="धंदा"
             value={field.value}
-            options={BUSINESSES}
-            onChange={field.onChange}
+            options={BUSINESSES.map(item => ({...item, label: tx(item.label)}))}
+            onChange={value => {
+              field.onChange(value);
+              setProductIds([]);
+            }}
           />
         )}
       />
+      {catalog.length > 0 ? (
+        <View style={styles.products}>
+          <Text style={styles.help}>
+            {tx('उत्पादने निवडल्यास वाटा फक्त त्या मालाच्या विक्रीवर. रिकामे ठेवल्यास संपूर्ण धंदा.')}
+          </Text>
+          <View style={styles.chips}>
+            {catalog.map(item => {
+              const selected = productIds.includes(item.id);
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() =>
+                    setProductIds(current =>
+                      current.includes(item.id)
+                        ? current.filter(id => id !== item.id)
+                        : [...current, item.id],
+                    )
+                  }
+                  style={[styles.chip, selected ? styles.chipOn : null]}>
+                  <Text style={[styles.chipLabel, selected ? styles.chipLabelOn : null]}>{tx(item.name)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
       <Controller
         control={form.control}
         name="sharePercent"
@@ -109,31 +159,32 @@ export function PartnerMasterScreen() {
           />
         )}
       />
-      {formError ? <Text style={styles.error}>{formError}</Text> : null}
+      {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
       <Button label={editing ? 'बदल जतन करा' : 'जोडा'} onPress={form.handleSubmit(submit)} />
       {editing ? (
         <Button
           label="रद्द"
           variant="secondary"
-          onPress={() => {
-            setEditing(null);
-            form.reset({name: '', businessType: 'vegetable', sharePercent: ''});
-          }}
+          onPress={resetForm}
         />
       ) : null}
-      {compareMoney(shareTotal, 100) > 0 ? (
-        <Text style={styles.error}>सक्रिय वाटा एकूण {shareTotal}% आहे.</Text>
-      ) : (
-        <Text style={styles.help}>सक्रिय वाटा एकूण {shareTotal}%.</Text>
-      )}
+      {overflows.map(hit => (
+        <Text key={`${hit.businessType}-${hit.productId ?? 'all'}`} style={styles.error}>
+          {tx(PARTNER_BUSINESS_LABEL[hit.businessType] ?? 'भाजी')}
+          {hit.productId ? ` · ${tx([...vegetables.data, ...grains.data].find(row => row.id === hit.productId)?.name ?? '')}` : ` · ${tx('संपूर्ण धंदा')}`}
+          {' · '}
+          {hit.total}% {tx('आहे. १००% पेक्षा जास्त.')}
+        </Text>
+      ))}
       <View style={styles.list}>
-        {partners.data.length === 0 ? <Text style={styles.help}>अजून भागीदार नाही.</Text> : null}
+        {partners.data.length === 0 ? <Text style={styles.help}>{tx('अजून भागीदार नाही.')}</Text> : null}
         {partners.data.map(partner => (
           <View key={partner.id} style={styles.row}>
             <Pressable
               style={styles.rowText}
               onPress={() => {
                 setEditing(partner.id);
+                setProductIds(partner.productIds);
                 form.reset({
                   name: partner.name,
                   businessType: (['vegetable', 'flour', 'milk', 'general'].includes(partner.businessType)
@@ -144,7 +195,15 @@ export function PartnerMasterScreen() {
               }}>
               <Text style={styles.name}>{partner.name}</Text>
               <Text style={styles.meta}>
-                {PARTNER_BUSINESS_LABEL[partner.businessType] ?? 'भाजी'} · {partner.sharePercent}%{partner.active ? '' : ' · बंद'}
+                {tx(PARTNER_BUSINESS_LABEL[partner.businessType] ?? 'भाजी')} ·{' '}
+                {partner.productIds.length
+                  ? partner.productIds
+                      .map(id => tx([...vegetables.data, ...grains.data].find(row => row.id === id)?.name ?? ''))
+                      .filter(Boolean)
+                      .join(', ')
+                  : tx('संपूर्ण धंदा')}{' '}
+                · {partner.sharePercent}%
+                {partner.active ? '' : ` · ${tx('बंद')}`}
               </Text>
             </Pressable>
             <Pressable
@@ -153,7 +212,7 @@ export function PartnerMasterScreen() {
                 await partners.reload();
               }}
               style={styles.toggle}>
-              <Text style={styles.toggleLabel}>{partner.active ? 'बंद करा' : 'सुरू करा'}</Text>
+              <Text style={styles.toggleLabel}>{partner.active ? tx('बंद करा') : tx('सुरू करा')}</Text>
             </Pressable>
           </View>
         ))}
@@ -182,4 +241,18 @@ const styles = StyleSheet.create({
   meta: {fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted},
   toggle: {minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm},
   toggleLabel: {fontFamily: fonts.medium, fontSize: 15, color: colors.primary},
+  products: {gap: spacing.sm},
+  chips: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm},
+  chip: {
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+  },
+  chipOn: {backgroundColor: colors.primary, borderColor: colors.primary},
+  chipLabel: {fontFamily: fonts.medium, fontSize: 16, color: colors.text},
+  chipLabelOn: {color: '#FFFFFF'},
 });

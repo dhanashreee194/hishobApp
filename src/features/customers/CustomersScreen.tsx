@@ -20,6 +20,7 @@ import {optionalMobile, requiredName} from '../../forms/fields';
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {useListFilter} from '../../hooks/useListFilter';
 import {RootStackParamList, TabParamList} from '../../navigation/types';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, formatInr, spacing} from '../../theme';
 
 const schema = z.object({
@@ -40,6 +41,7 @@ export function CustomersScreen() {
     >();
   const route = useRoute<RouteProp<TabParamList, 'Udhari'>>();
   const filter = useListFilter(route.params?.filter);
+  const tx = useTx();
   const customers = useAsyncData(() => loadCustomerBalances(database), []);
   const collected = useAsyncData(() => loadTodayCollections(database, new Date()), []);
   const visible = useMemo(() => {
@@ -83,10 +85,10 @@ export function CustomersScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <>
-            <Text style={styles.collectedTitle}>आज उधारी जमा</Text>
+            <Text style={styles.collectedTitle}>{tx('आज उधारी जमा')}</Text>
             {collected.data.length === 0 ? (
               <Text style={styles.empty}>
-                आज अजून उधारीचे पैसे आलेले नाहीत. पेमेंट जमा केल्यावर इथे दिसेल.
+                {tx('आज अजून उधारीचे पैसे आलेले नाहीत. पेमेंट जमा केल्यावर इथे दिसेल.')}
               </Text>
             ) : (
               <>
@@ -102,7 +104,7 @@ export function CustomersScreen() {
                   />
                 ))}
                 <Text style={styles.collectedTotal}>
-                  एकूण आज जमा{' '}
+                  {tx('एकूण आज जमा')}{' '}
                   {formatInr(moneyNumber(sumAmounts(collected.data.map(item => item.amount))))}
                 </Text>
               </>
@@ -112,8 +114,8 @@ export function CustomersScreen() {
         ListEmptyComponent={
           <Text style={styles.empty}>
             {filter.text || filter.from != null || filter.to != null
-              ? 'या शोधात ग्राहक सापडला नाही.'
-              : 'अजून ग्राहक नाही.'}
+              ? tx('या शोधात ग्राहक सापडला नाही.')
+              : tx('अजून ग्राहक नाही.')}
           </Text>
         }
         renderItem={({item}) => (
@@ -137,6 +139,7 @@ export function CustomerFormScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'CustomerForm'>>();
   const customerId = route.params?.customerId;
   const [formError, setFormError] = useState<string | null>(null);
+  const tx = useTx();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {name: '', mobile: '', address: ''},
@@ -219,7 +222,7 @@ export function CustomerFormScreen() {
           />
         )}
       />
-      {formError ? <Text style={styles.error}>{formError}</Text> : null}
+      {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
       <Button label={customerId ? 'सुधार जतन करा' : 'ग्राहक जतन करा'} onPress={form.handleSubmit(submit)} />
     </FormScreen>
   );

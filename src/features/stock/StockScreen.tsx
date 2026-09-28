@@ -23,6 +23,7 @@ import {
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {confirmDelete} from '../records/confirmDelete';
 import {updateStockMovement} from '../../db/updates';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, formatIndianDate, spacing} from '../../theme';
 
 const KINDS: Array<{value: StockKind; label: string}> = [
@@ -59,6 +60,7 @@ export function StockScreen() {
   const [qty, setQty] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const tx = useTx();
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const selected = grains.data.find(grain => grain.id === grainId) ?? grains.data[0] ?? null;
@@ -122,17 +124,17 @@ export function StockScreen() {
   return (
     <FormScreen>
       <Text style={styles.help}>
-        हा साठा गिरणीच्या बिलापासून वेगळा आहे. धान्य आत-बाहेर आणि पीठ आत-बाहेर इथे नोंदवा.
+        {tx('हा साठा गिरणीच्या बिलापासून वेगळा आहे. धान्य आत-बाहेर आणि पीठ आत-बाहेर इथे नोंदवा.')}
       </Text>
-      {grains.data.length === 0 ? <Text style={styles.help}>आधी गिरणीत धान्य जोडा.</Text> : null}
-      <Text style={styles.heading}>शिल्लक</Text>
-      {balances.length === 0 ? <Text style={styles.help}>अजून साठा नाही.</Text> : null}
+      {grains.data.length === 0 ? <Text style={styles.help}>{tx('आधी गिरणीत धान्य जोडा.')}</Text> : null}
+      <Text style={styles.heading}>{tx('धान्य शिल्लक')}</Text>
+      {balances.length === 0 ? <Text style={styles.help}>{tx('अजून साठा नाही.')}</Text> : null}
       {balances.map(balance => {
         const grain = grains.data.find(row => row.id === balance.grainId);
         return (
           <Text key={`${balance.kind}-${balance.grainId}`} style={styles.balance}>
-            {grain?.name ?? 'धान्य'} · {balance.kind === 'flour' ? 'पीठ' : 'धान्य'} · {balance.quantity}{' '}
-            {grain?.unit ?? ''}
+            {tx(grain?.name ?? 'धान्य')} · {tx(balance.kind === 'flour' ? 'पीठ' : 'धान्य')} · {balance.quantity}{' '}
+            {grain?.unit ? tx(grain.unit) : ''}
           </Text>
         );
       })}
@@ -153,14 +155,14 @@ export function StockScreen() {
       <DateField label="तारीख" value={date} onChange={setDate} />
       <TextField label="प्रमाण" value={qty} onChangeText={setQty} keyboardType="decimal-pad" />
       <TextField label="टीप" value={notes} onChangeText={setNotes} />
-      {editingId ? <Text style={styles.help}>ही साठा नोंद सुधारत आहात.</Text> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {editingId ? <Text style={styles.help}>{tx('ही साठा नोंद सुधारत आहात.')}</Text> : null}
+      {error ? <Text style={styles.error}>{tx(error)}</Text> : null}
       <Button
         label={saving ? 'जतन होत आहे…' : editingId ? 'सुधार जतन करा' : 'साठा नोंदवा'}
         onPress={save}
         disabled={saving}
       />
-      <Text style={styles.heading}>नोंदी</Text>
+      <Text style={styles.heading}>{tx('नोंदी')}</Text>
       {movements.data.map(row => {
         const grain = grains.data.find(item => item.id === row.grainId);
         return (

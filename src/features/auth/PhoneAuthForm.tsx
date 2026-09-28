@@ -3,6 +3,7 @@ import {StyleSheet, Text} from 'react-native';
 import {Button, TextField} from '../../components';
 import {getSupabase} from '../../sync/client';
 import {toE164} from '../../sync/phone';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts} from '../../theme';
 
 type Props = {
@@ -15,6 +16,7 @@ export function PhoneAuthForm({onSignedIn}: Props) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tx = useTx();
 
   async function sendCode() {
     const supabase = getSupabase();
@@ -66,7 +68,9 @@ export function PhoneAuthForm({onSignedIn}: Props) {
 
   return (
     <>
-      <Text style={styles.help}>फोनवर OTP येईल. नेटवर्क नसेल तर हिशोब ऑफलाइन चालू राहतो.</Text>
+      <Text style={styles.help}>
+        {tx('फोनवर OTP येईल. नेटवर्क नसेल तर हिशोब ऑफलाइन चालू राहतो.')}
+      </Text>
       <TextField
         label="मोबाइल"
         value={phone}
@@ -83,7 +87,7 @@ export function PhoneAuthForm({onSignedIn}: Props) {
           placeholder="6 अंक"
         />
       ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error}>{tx(error)}</Text> : null}
       {sent ? (
         <Button label={busy ? 'तपासत आहे…' : 'प्रवेश करा'} onPress={verify} disabled={busy} />
       ) : (

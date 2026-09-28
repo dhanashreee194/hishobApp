@@ -1,9 +1,10 @@
 import {Database} from '@nozbe/watermelondb';
 import {notDeleted} from './queries';
 import {startOfDay} from '../domain/dates';
-import type {DatedAmount, FlourPoint, LedgerPoint, PeriodKind} from '../domain/reports';
+import type {DatedAmount, FlourPoint, LedgerPoint, PeriodKind, ProductSale} from '../domain/reports';
 import {settlementWindow, scopePartnerBooks} from '../domain/reports';
 import {settlePartner, type SettlementResult} from '../domain/settlement';
+import {flourDisplayName} from '../domain/labels';
 import {money, sumAmounts} from '../domain/money';
 import type {SearchIndex} from '../domain/search';
 import {
@@ -17,6 +18,7 @@ import {
   MilkEntry,
   Partner,
   PartnerPayment,
+  PartnerProduct,
   VegetableMaster,
   VegetableSale,
   VegetableSaleItem,
@@ -28,6 +30,7 @@ export type PartnerRow = {
   sharePercent: string;
   businessType: string;
   active: boolean;
+  productIds: string[];
 };
 
 export type PartnerPaymentRow = {
@@ -45,6 +48,8 @@ export type ReportSource = {
   vegetableExpenses: DatedAmount[];
   sharedSales: DatedAmount[];
   sharedExpenses: Array<DatedAmount & {businessType: string}>;
+  productSales: ProductSale[];
+  productNames: Record<string, string>;
   ledger: LedgerPoint[];
   partners: PartnerRow[];
   payments: PartnerPaymentRow[];
@@ -55,15 +60,62 @@ function stamp(date: Date): number {
 }
 
 export async function loadReportSource(database: Database): Promise<ReportSource> {
-  const [flour, milk, sales, expenses, ledger, partners, payments] = await Promise.all([
+  const [flour, flourItems, milk, sales, saleItems, expenses, ledger, partners, links, payments, vegetables, grains] =
+    await Promise.all([
     database.get<FlourTransaction>('flour_transactions').query(notDeleted()).fetch(),
+    database.get<FlourItem>('flour_items').query(notDeleted()).fetch(),
     database.get<MilkEntry>('milk_entries').query(notDeleted()).fetch(),
     database.get<VegetableSale>('vegetable_sales').query(notDeleted()).fetch(),
+    database.get<VegetableSaleItem>('vegetable_sale_items').query(notDeleted()).fetch(),
     database.get<Expense>('expenses').query(notDeleted()).fetch(),
     database.get<CustomerLedgerEntry>('customer_ledger_entries').query(notDeleted()).fetch(),
     database.get<Partner>('partners').query().fetch(),
+    database.get<PartnerProduct>('partner_products').query().fetch(),
     database.get<PartnerPayment>('partner_payments').query(notDeleted()).fetch(),
+    database.get<VegetableMaster>('vegetable_masters').query().fetch(),
+    database.get<GrainMaster>('grain_masters').query().fetch(),
   ]);
+  const saleById = new Map(sales.map(row => [row.id, row]));
+  const flourById = new Map(flour.map(row => [row.id, row]));
+  const productsByPartner = new Map<string, string[]>();
+  for (const link of links) {
+    const list = productsByPartner.get(link.partnerId) ?? [];
+    list.push(link.productId);
+    productsByPartner.set(link.partnerId, list);
+  }
+  const productSales: ProductSale[] = [
+    ...saleItems.flatMap(item => {
+      const sale = saleById.get(item.saleId);
+      if (!sale || sale.ownershipType !== 'shared') {
+        return [];
+      }
+      return [{
+        date: stamp(sale.date),
+        amount: money(item.saleAmount),
+        productId: item.vegetableId,
+        businessType: 'vegetable',
+      }];
+    }),
+    ...flourItems.flatMap(item => {
+      const bill = flourById.get(item.transactionId);
+      if (!bill) {
+        return [];
+      }
+      return [{
+        date: stamp(bill.date),
+        amount: money(item.amount),
+        productId: item.grainId,
+        businessType: 'flour',
+      }];
+    }),
+  ];
+  const productNames: Record<string, string> = {};
+  for (const row of vegetables) {
+    productNames[row.id] = row.name;
+  }
+  for (const row of grains) {
+    productNames[row.id] = row.name;
+  }
   return {
     flour: flour.map(row => ({
       date: stamp(row.date),
@@ -99,6 +151,8 @@ export async function loadReportSource(database: Database): Promise<ReportSource
         amount: money(row.amount),
         businessType: row.businessType,
       })),
+    productSales,
+    productNames,
     ledger: ledger.map(row => ({
       date: stamp(row.date),
       type: row.type,
@@ -111,6 +165,7 @@ export async function loadReportSource(database: Database): Promise<ReportSource
         sharePercent: money(row.sharePercent),
         businessType: row.businessType || 'vegetable',
         active: row.active,
+        productIds: productsByPartner.get(row.id) ?? [],
       }))
       .sort((left, right) => left.name.localeCompare(right.name, 'mr')),
     payments: payments.map(row => ({
@@ -138,7 +193,13 @@ export async function loadPartnerSettlement(
   const payments = source.payments.filter(
     row => row.partnerId === partnerId && inWindow(row.date),
   );
-  const books = scopePartnerBooks(businessType, source.sharedSales, source.sharedExpenses);
+  const books = scopePartnerBooks(
+    businessType,
+    source.sharedSales,
+    source.sharedExpenses,
+    partner?.productIds ?? [],
+    source.productSales,
+  );
   const settled = settlePartner({
     sharedSales: sumAmounts(books.sales.filter(row => inWindow(row.date)).map(row => row.amount)),
     sharedExpenses: sumAmounts(
@@ -197,7 +258,7 @@ export async function loadSearchIndex(database: Database): Promise<SearchIndex> 
       date: stamp(row.date),
       customerName: row.customerId ? (customerName.get(row.customerId) ?? null) : null,
       grainName: (itemsByFlour.get(row.id) ?? [])
-        .map(item => grainName.get(item.grainId) ?? '')
+        .map(item => flourDisplayName(grainName.get(item.grainId) ?? '', item.customName))
         .join(', '),
     })),
     milk: milk.map(row => ({date: stamp(row.date)})),

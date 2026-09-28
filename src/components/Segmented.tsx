@@ -1,5 +1,6 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, spacing} from '../theme';
 
 type Option<T extends string> = {
@@ -20,9 +21,10 @@ export function Segmented<T extends string>({
   options,
   onChange,
 }: Props<T>) {
+  const tx = useTx();
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{tx(label)}</Text>
       <View style={styles.row}>
         {options.map(option => {
           const selected = option.value === value;
@@ -34,7 +36,7 @@ export function Segmented<T extends string>({
               onPress={() => onChange(option.value)}
               style={[styles.item, selected ? styles.selected : null]}>
               <Text style={[styles.itemLabel, selected ? styles.selectedLabel : null]}>
-                {option.label}
+                {tx(option.label)}
               </Text>
             </Pressable>
           );

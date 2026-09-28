@@ -3,6 +3,7 @@ import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import {migrations} from './migrations';
 import {modelClasses} from './models';
 import {schema} from './schema';
+import {importFarmSheet} from './importFarmSheet';
 import {seedDatabase} from './seed';
 
 const adapter = new SQLiteAdapter({
@@ -25,6 +26,7 @@ export const database = new Database({
 export async function prepareDatabase(): Promise<void> {
   await adapter.initializingPromise;
   await seedDatabase(database);
+  await importFarmSheet(database);
 }
 
 export {schema} from './schema';

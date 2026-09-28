@@ -9,6 +9,7 @@ import {confirmDelete} from '../records/confirmDelete';
 import {businessLabel, PAYMENT_MODE_LABEL} from '../../domain/labels';
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {RootStackParamList} from '../../navigation/types';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, formatIndianDate, formatInr, spacing} from '../../theme';
 
 export function CustomerDetailScreen() {
@@ -19,6 +20,7 @@ export function CustomerDetailScreen() {
     {customer: null, lines: []},
   );
   const customer = ledger.data.customer;
+  const tx = useTx();
 
   return (
     <RecordList
@@ -28,13 +30,13 @@ export function CustomerDetailScreen() {
       renderItem={({item: line}) => (
         <RecordCard
           title={`${formatIndianDate(new Date(line.date))} · ${
-            line.type === 'payment' ? 'जमा' : 'उधार'
+            line.type === 'payment' ? tx('जमा') : tx('उधार')
           }`}
           subtitle={[
             businessLabel(line.businessType),
             line.paymentMode ? PAYMENT_MODE_LABEL[line.paymentMode] : null,
             line.notes,
-            `शिल्लक ${formatInr(line.running)}`,
+            `${tx('शिल्लक')} ${formatInr(line.running)}`,
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -57,13 +59,13 @@ export function CustomerDetailScreen() {
       )}
       header={
         <>
-          <Text style={styles.name}>{customer?.name ?? 'ग्राहक'}</Text>
+          <Text style={styles.name}>{customer?.name ?? tx('ग्राहक')}</Text>
           {customer?.mobile ? <Text style={styles.meta}>{customer.mobile}</Text> : null}
           {customer?.address ? <Text style={styles.meta}>{customer.address}</Text> : null}
           <View style={styles.balance}>
-            <Text style={styles.balanceLabel}>सध्याची बाकी</Text>
+            <Text style={styles.balanceLabel}>{tx('सध्याची बाकी')}</Text>
             <Text style={styles.balanceAmount}>{formatInr(customer?.balance ?? 0)}</Text>
-            <Text style={styles.meta}>उधार वजा जमा. ही रक्कम आपोआप मोजली जाते.</Text>
+            <Text style={styles.meta}>{tx('उधार वजा जमा. ही रक्कम आपोआप मोजली जाते.')}</Text>
           </View>
           <Button
             label="ग्राहक सुधारा"
@@ -77,7 +79,7 @@ export function CustomerDetailScreen() {
             }
             disabled={!customer || customer.balance <= 0}
           />
-          <Text style={styles.section}>खातेवही</Text>
+          <Text style={styles.section}>{tx('खातेवही')}</Text>
         </>
       }
     />

@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, TextInput, View} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, spacing} from '../theme';
 
 type Props = {
@@ -13,12 +14,13 @@ export function SearchField({
   onChangeText,
   placeholder = 'शोधा',
 }: Props) {
+  const tx = useTx();
   return (
     <View>
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={tx(placeholder)}
         placeholderTextColor={colors.textMuted}
         style={styles.input}
         autoCorrect={false}

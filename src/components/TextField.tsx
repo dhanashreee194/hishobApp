@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, Text, TextInput, View} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, spacing} from '../theme';
 
 type Props = {
@@ -27,14 +28,15 @@ export function TextField({
   secureTextEntry = false,
   maxLength,
 }: Props) {
+  const tx = useTx();
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{tx(label)}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         editable={editable}
-        placeholder={placeholder}
+        placeholder={placeholder ? tx(placeholder) : placeholder}
         placeholderTextColor={colors.textMuted}
         keyboardType={keyboardType}
         multiline={multiline}
@@ -42,14 +44,14 @@ export function TextField({
         maxLength={maxLength}
         style={[styles.input, multiline ? styles.multiline : null, !editable ? styles.locked : null]}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error}>{tx(error)}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   field: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   label: {
     fontFamily: fonts.medium,

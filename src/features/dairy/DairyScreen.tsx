@@ -19,11 +19,10 @@ import {
 import {database} from '../../db';
 import {confirmDelete} from '../records/confirmDelete';
 import {loadMilkList, loadSupplierNames} from '../../db/reads';
-import {rateOn} from '../../db/rates';
+import {milkRateOn} from '../../db/rates';
 import {saveMilkEntry} from '../../db/writes';
 import {updateMilkEntry} from '../../db/updates';
-import {weekdayName} from '../../domain/dates';
-import {MILK_RATE_ITEM_ID} from '../../domain/labels';
+import {useCopy, useTx} from '../../i18n/locale';
 import {includesText, inDateRange} from '../../domain/listFilter';
 import {LedgerError, multiplyMoney, parseNumber} from '../../domain/money';
 import {positiveNumber, requiredName} from '../../forms/fields';
@@ -45,8 +44,11 @@ export function DairyScreen() {
   const filter = useListFilter(route.params?.filter);
   const [date, setDate] = useState(() => new Date());
   const [rate, setRate] = useState<number | null>(null);
+  const [sharedRate, setSharedRate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const copy = useCopy();
+  const tx = useTx();
   const suppliers = useAsyncData(() => loadSupplierNames(database), []);
   const entries = useAsyncData(() => loadMilkList(database), []);
   const form = useForm<Values>({
@@ -54,6 +56,7 @@ export function DairyScreen() {
     defaultValues: {supplier: '', litres: ''},
     mode: 'onChange',
   });
+  const supplierName = form.watch('supplier');
   const litres = parseNumber(form.watch('litres'));
   const total =
     rate != null && litres != null && litres > 0 ? multiplyMoney(litres, rate) : null;
@@ -77,15 +80,24 @@ export function DairyScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      rateOn(database, 'milk', MILK_RATE_ITEM_ID, date).then(next => {
+      const name = supplierName.trim();
+      if (!name) {
+        setRate(null);
+        setSharedRate(false);
+        return () => {
+          cancelled = true;
+        };
+      }
+      milkRateOn(database, name, date).then(next => {
         if (!cancelled) {
-          setRate(next);
+          setRate(next.rate);
+          setSharedRate(next.shared);
         }
       });
       return () => {
         cancelled = true;
       };
-    }, [date]),
+    }, [date, supplierName]),
   );
 
   useEffect(() => {
@@ -139,7 +151,7 @@ export function DairyScreen() {
       }
       renderItem={({item}) => (
         <RecordCard
-          title={`${formatIndianDate(new Date(item.date))} ${weekdayName(new Date(item.date))}`}
+          title={`${formatIndianDate(new Date(item.date))} ${copy.weekdays[new Date(item.date).getDay()]}`}
           subtitle={`${item.supplier} · ${item.litres} लि × ${item.rate}`}
           amount={item.amount}
           tone="out"
@@ -156,10 +168,14 @@ export function DairyScreen() {
       <Button
         label="दूध दर"
         variant="secondary"
-        onPress={() => navigation.navigate('MilkRates')}
+        onPress={() =>
+          navigation.navigate('MilkRates', {
+            supplier: form.getValues('supplier').trim() || undefined,
+          })
+        }
       />
       <DateField value={date} onChange={setDate} />
-      <Text style={styles.day}>{weekdayName(date)}</Text>
+      <Text style={styles.day}>{copy.weekdays[date.getDay()]}</Text>
       <Controller
         control={form.control}
         name="supplier"
@@ -190,11 +206,19 @@ export function DairyScreen() {
       <DerivedAmount
         label="एकूण (लिटर × दर)"
         amount={total}
-        hint={rate == null ? 'आधी दूध दर भरा' : `दर ${rate} · ही रक्कम आपोआप आहे`}
+        hint={
+          !supplierName.trim()
+            ? 'पुरवठादाराचे नाव भरा'
+            : rate == null
+              ? 'या पुरवठादारासाठी दूध दर भरा'
+              : sharedRate
+                ? `${tx('सामाईक दर')} ${rate}. ${tx('या पुरवठादाराचा वेगळा दर दूध दरात ठेवा.')}`
+                : `${tx('दर')} ${rate} · ${tx('ही रक्कम आपोआप आहे.')}`
+        }
         tone="out"
       />
-      {editingId ? <Text style={styles.day}>ही दूध नोंद सुधारत आहात.</Text> : null}
-      {formError ? <Text style={styles.error}>{formError}</Text> : null}
+      {editingId ? <Text style={styles.day}>{tx('ही दूध नोंद सुधारत आहात.')}</Text> : null}
+      {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
       <Button
         label={editingId ? 'सुधार जतन करा' : 'दूध नोंद जतन करा'}
         onPress={form.handleSubmit(submit)}
@@ -209,11 +233,13 @@ export function DairyScreen() {
           }}
         />
       ) : null}
-      <SearchField
-        value={filter.text}
-        onChangeText={filter.setText}
-        placeholder="पुरवठादार किंवा तारीख"
-      />
+      {entries.data.length > 0 ? (
+        <SearchField
+          value={filter.text}
+          onChangeText={filter.setText}
+          placeholder="पुरवठादार किंवा तारीख"
+        />
+      ) : null}
       <FilterBanner
         from={filter.from}
         to={filter.to}

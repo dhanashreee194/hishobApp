@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.md,
-    paddingBottom: spacing.xl,
+    gap: spacing.lg,
+    paddingBottom: spacing.xl * 2,
   },
 });

@@ -25,6 +25,7 @@ import {LedgerError, moneyNumber, parseNumber, roundMoney, sumAmounts} from '../
 import {positiveNumber} from '../../forms/fields';
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {RootStackParamList} from '../../navigation/types';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, spacing} from '../../theme';
 
 const schema = z.object({
@@ -41,6 +42,7 @@ export function RecordPaymentScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [date, setDate] = useState(() => new Date());
   const [formError, setFormError] = useState<string | null>(null);
+  const tx = useTx();
   const ledger = useAsyncData(
     () => loadLedger(database, route.params.customerId),
     {customer: null, lines: []},
@@ -114,7 +116,7 @@ export function RecordPaymentScreen() {
 
   return (
     <FormScreen>
-      <Text style={styles.name}>{ledger.data.customer?.name ?? 'ग्राहक'}</Text>
+      <Text style={styles.name}>{ledger.data.customer?.name ?? tx('ग्राहक')}</Text>
       <DerivedAmount label="सध्याची बाकी" amount={balance} tone="out" />
       <DateField value={date} onChange={setDate} />
       <Controller
@@ -156,7 +158,7 @@ export function RecordPaymentScreen() {
             value={field.value}
             options={Object.entries(PAYMENT_MODE_LABEL).map(([value, label]) => ({
               value,
-              label,
+              label: tx(label),
             }))}
             onChange={field.onChange}
             error={fieldState.error?.message}
@@ -177,7 +179,7 @@ export function RecordPaymentScreen() {
           <TextField label="टीप" value={field.value} onChangeText={field.onChange} />
         )}
       />
-      {formError ? <Text style={styles.error}>{formError}</Text> : null}
+      {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
       <Button label={entryId ? 'सुधार जतन करा' : 'पेमेंट जतन करा'} onPress={form.handleSubmit(submit)} />
     </FormScreen>
   );
@@ -185,6 +187,7 @@ export function RecordPaymentScreen() {
 
 export function ReceivePaymentScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const tx = useTx();
   const [query, setQuery] = useState('');
   const customers = useAsyncData(() => loadCustomerBalances(database), []);
   const visible = customers.data.filter(customer => {
@@ -205,7 +208,7 @@ export function ReceivePaymentScreen() {
         data={visible}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.error}>बाकी असलेला ग्राहक नाही.</Text>}
+        ListEmptyComponent={<Text style={styles.error}>{tx('बाकी असलेला ग्राहक नाही.')}</Text>}
         renderItem={({item}) => (
           <RecordCard
             title={item.name}

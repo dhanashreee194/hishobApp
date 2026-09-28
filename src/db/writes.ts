@@ -1,7 +1,8 @@
-import {Database} from '@nozbe/watermelondb';
+import {Database, Q} from '@nozbe/watermelondb';
 import {notDeleted} from './queries';
 import {startOfDay} from '../domain/dates';
-import {MILK_RATE_ITEM_ID} from '../domain/labels';
+import {OTHER_ITEM_NAME} from './seed';
+import type {VegetableSaleInput} from '../domain/sales';
 import {
   compareMoney,
   LedgerError,
@@ -24,12 +25,13 @@ import {
   MilkEntry,
   Partner,
   PartnerPayment,
+  PartnerProduct,
   VegetableMaster,
   VegetableSale,
   VegetableSaleItem,
 } from './models';
 import type {PeriodKind} from '../domain/reports';
-import {rateOn} from './rates';
+import {milkRateOn, rateOn} from './rates';
 import {balanceOf} from './reads';
 
 export async function saveFlourEntry(
@@ -37,6 +39,7 @@ export async function saveFlourEntry(
   input: {
     date: Date;
     grainId: string;
+    otherName?: string;
     quantity: number;
     customerId: string | null;
     paidAmount: number;
@@ -44,6 +47,10 @@ export async function saveFlourEntry(
   },
 ): Promise<void> {
   const grain = await database.get<GrainMaster>('grain_masters').find(input.grainId);
+  const otherName = grain.name === OTHER_ITEM_NAME ? (input.otherName ?? '').trim() : '';
+  if (grain.name === OTHER_ITEM_NAME && !otherName) {
+    throw new LedgerError('धान्याचे नाव भरा');
+  }
   const rate = await rateOn(database, 'grain', input.grainId, input.date);
   if (rate == null) {
     throw new LedgerError('या तारखेसाठी धान्याचा दर ठरवलेला नाही');
@@ -58,7 +65,7 @@ export async function saveFlourEntry(
   }
   const pending = moneyNumber(netAmount(total, paid));
   const note = input.notes.trim();
-  const billNote = `${grain.name} ${input.quantity} ${grain.defaultUnit}`;
+  const billNote = `${otherName || grain.name} ${input.quantity} ${grain.defaultUnit}`;
 
   await database.write(async () => {
     const transaction = await database
@@ -78,6 +85,7 @@ export async function saveFlourEntry(
       record.unit = grain.defaultUnit;
       record.appliedRate = rate;
       record.amount = total;
+      record.customName = otherName || null;
     });
     if (input.customerId) {
       await database.get<CustomerLedgerEntry>('customer_ledger_entries').create(record => {
@@ -117,9 +125,9 @@ export async function saveMilkEntry(
   if (!(input.litres > 0)) {
     throw new LedgerError('लिटर शून्यापेक्षा जास्त हवे');
   }
-  const rate = await rateOn(database, 'milk', MILK_RATE_ITEM_ID, input.date);
+  const {rate} = await milkRateOn(database, supplier, input.date);
   if (rate == null) {
-    throw new LedgerError('या तारखेसाठी दूध दर ठरवलेला नाही');
+    throw new LedgerError('या पुरवठादारासाठी या तारखेला दूध दर नाही');
   }
   const amount = multiplyMoney(input.litres, rate);
   await database.write(async () => {
@@ -138,7 +146,7 @@ export async function saveVegetableDay(
   input: {
     date: Date;
     ownershipType: 'own' | 'shared';
-    sales: Array<{vegetableId: string; quantity: number; unit: string; saleAmount: number}>;
+    sales: VegetableSaleInput[];
     expenses: Array<{categoryId: string; amount: number; notes: string}>;
   },
 ): Promise<void> {
@@ -161,6 +169,9 @@ export async function saveVegetableDay(
           record.quantity = line.quantity;
           record.unit = line.unit;
           record.saleAmount = roundMoney(line.saleAmount);
+          record.appliedRate = line.appliedRate;
+          record.openingQuantity = line.openingQuantity;
+          record.remainingQuantity = line.remainingQuantity;
         });
       }
     }
@@ -382,7 +393,14 @@ export async function renameCategory(
 
 export async function savePartner(
   database: Database,
-  input: {id?: string; name: string; sharePercent: number; businessType: string; active: boolean},
+  input: {
+    id?: string;
+    name: string;
+    sharePercent: number;
+    businessType: string;
+    active: boolean;
+    productIds?: string[];
+  },
 ): Promise<void> {
   const name = input.name.trim();
   if (!name) {
@@ -398,8 +416,10 @@ export async function savePartner(
   if (compareMoney(sharePercent, 0) <= 0 || compareMoney(sharePercent, 100) > 0) {
     throw new LedgerError('वाटा ० पेक्षा जास्त आणि १०० पर्यंत हवा');
   }
-  if (input.id) {
-    const record = await database.get<Partner>('partners').find(input.id);
+  const productIds = [...new Set((input.productIds ?? []).map(id => id.trim()).filter(Boolean))];
+  let partnerId = input.id;
+  if (partnerId) {
+    const record = await database.get<Partner>('partners').find(partnerId);
     await database.write(async () => {
       await record.update(next => {
         next.name = name;
@@ -408,15 +428,31 @@ export async function savePartner(
         next.active = input.active;
       });
     });
-    return;
-  }
-  await database.write(async () => {
-    await database.get<Partner>('partners').create(record => {
-      record.name = name;
-      record.sharePercent = sharePercent;
-      record.businessType = businessType;
-      record.active = input.active;
+  } else {
+    await database.write(async () => {
+      const record = await database.get<Partner>('partners').create(next => {
+        next.name = name;
+        next.sharePercent = sharePercent;
+        next.businessType = businessType;
+        next.active = input.active;
+      });
+      partnerId = record.id;
     });
+  }
+  const existing = await database
+    .get<PartnerProduct>('partner_products')
+    .query(Q.where('partner_id', partnerId ?? ''))
+    .fetch();
+  await database.write(async () => {
+    for (const row of existing) {
+      await row.markAsDeleted();
+    }
+    for (const productId of productIds) {
+      await database.get<PartnerProduct>('partner_products').create(next => {
+        next.partnerId = partnerId ?? '';
+        next.productId = productId;
+      });
+    }
   });
 }
 

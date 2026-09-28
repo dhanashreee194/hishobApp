@@ -17,7 +17,7 @@ export type RootStackParamList = {
   GrainRates: undefined;
   Stock: undefined;
   Dairy: {filter?: ListFilter; entryId?: string} | undefined;
-  MilkRates: undefined;
+  MilkRates: {supplier?: string} | undefined;
   VegetableMaster: undefined;
   LabourMaster: undefined;
   ExpenseEntry: {expenseId?: string} | undefined;

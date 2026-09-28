@@ -18,11 +18,12 @@ import {database} from '../../db';
 import {Q} from '@nozbe/watermelondb';
 import {FlourItem, FlourTransaction} from '../../db/models';
 import {loadCustomerBalances, loadGrains} from '../../db/reads';
-import {rateOn} from '../../db/rates';
+import {addRate, rateOn} from '../../db/rates';
 import {updateFlourEntry} from '../../db/updates';
 import {saveFlourEntry} from '../../db/writes';
 import {STANDING_LABEL} from '../../domain/labels';
-import {weekdayName} from '../../domain/dates';
+import {OTHER_ITEM_NAME} from '../../db/seed';
+import {useCopy, useTx} from '../../i18n/locale';
 import {
   LedgerError,
   multiplyMoney,
@@ -37,6 +38,7 @@ import {colors, fonts} from '../../theme';
 
 const schema = z.object({
   grainId: z.string().min(1, 'धान्य निवडा'),
+  otherName: z.string(),
   quantity: positiveNumber,
   customerId: z.string(),
   standing: z.enum(['paid', 'partial', 'pending']),
@@ -52,13 +54,18 @@ export function FlourEntryScreen() {
   const entryId = route.params?.entryId;
   const [date, setDate] = useState(() => new Date());
   const [rate, setRate] = useState<number | null>(null);
+  const [rateDraft, setRateDraft] = useState('');
+  const [savingRate, setSavingRate] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const copy = useCopy();
+  const tx = useTx();
   const grains = useAsyncData(() => loadGrains(database), []);
   const customers = useAsyncData(() => loadCustomerBalances(database), []);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
       grainId: '',
+      otherName: '',
       quantity: '',
       customerId: '',
       standing: 'paid',
@@ -107,6 +114,7 @@ export function FlourEntryScreen() {
       setDate(txn.date);
       form.reset({
         grainId: item?.grainId ?? '',
+        otherName: item?.customName ?? '',
         quantity: item ? String(item.quantity) : '',
         customerId: txn.customerId ?? '',
         standing: paymentStanding(txn.totalAmount, txn.paidAmount),
@@ -118,6 +126,10 @@ export function FlourEntryScreen() {
       cancelled = true;
     };
   }, [entryId, form]);
+
+  useEffect(() => {
+    setRateDraft('');
+  }, [grainId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -139,8 +151,40 @@ export function FlourEntryScreen() {
     }, [date, grainId]),
   );
 
+  async function saveGrainRate() {
+    setFormError(null);
+    const parsed = parseNumber(rateDraft);
+    if (!grainId) {
+      setFormError('धान्य निवडा');
+      return;
+    }
+    if (parsed == null || !(parsed > 0)) {
+      setFormError('दर शून्यापेक्षा जास्त हवा');
+      return;
+    }
+    setSavingRate(true);
+    try {
+      await addRate(database, {
+        masterType: 'grain',
+        itemId: grainId,
+        rate: parsed,
+        effectiveFrom: date,
+      });
+      setRate(parsed);
+      setRateDraft('');
+    } catch (error) {
+      setFormError(error instanceof LedgerError ? error.message : 'दर जतन करता आला नाही');
+    } finally {
+      setSavingRate(false);
+    }
+  }
+
   async function submit(values: Values) {
     setFormError(null);
+    if (grain?.name === OTHER_ITEM_NAME && !values.otherName.trim()) {
+      setFormError('धान्याचे नाव भरा');
+      return;
+    }
     if (total == null || paidNumber == null || rate == null) {
       setFormError(rate == null ? 'आधी या धान्याचा दर भरा' : 'प्रमाण भरा');
       return;
@@ -154,6 +198,7 @@ export function FlourEntryScreen() {
         await updateFlourEntry(database, entryId, {
           date,
           grainId: values.grainId,
+          otherName: values.otherName,
           quantity: quantityValue ?? 0,
           customerId: values.customerId || null,
           paidAmount: values.standing === 'paid' ? total : paidNumber,
@@ -163,6 +208,7 @@ export function FlourEntryScreen() {
         await saveFlourEntry(database, {
           date,
           grainId: values.grainId,
+          otherName: values.otherName,
           quantity: quantityValue ?? 0,
           customerId: values.customerId || null,
           paidAmount: values.standing === 'paid' ? total : paidNumber,
@@ -178,7 +224,7 @@ export function FlourEntryScreen() {
   return (
     <FormScreen>
       <DateField value={date} onChange={setDate} />
-      <Text style={styles.day}>{weekdayName(date)}</Text>
+      <Text style={styles.day}>{copy.weekdays[date.getDay()]}</Text>
       <Controller
         control={form.control}
         name="grainId"
@@ -196,12 +242,57 @@ export function FlourEntryScreen() {
           />
         )}
       />
+      {grain?.name === OTHER_ITEM_NAME ? (
+        <Controller
+          control={form.control}
+          name="otherName"
+          render={({field, fieldState}) => (
+            <TextField
+              label="धान्याचे नाव"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={fieldState.error?.message}
+              placeholder="उदा. मका"
+            />
+          )}
+        />
+      ) : null}
+      {grain?.name === OTHER_ITEM_NAME ? (
+        <Text style={styles.day}>{tx('इतर निवडल्यास त्या धान्याचे नाव लिहा.')}</Text>
+      ) : null}
       <TextField
         label="आजचा दर"
-        value={rate == null ? 'दर नाही' : String(rate)}
+        value={rate == null ? '' : String(rate)}
         onChangeText={() => undefined}
         editable={false}
+        placeholder={grainId ? tx('दर नाही') : tx('धान्य निवडा')}
       />
+      {rate == null ? (
+        <>
+          <Text style={styles.day}>
+            {grainId
+              ? tx('या धान्यासाठी दर जोडा. हा दर या तारखेपासून नवीन नोंदींना लागू होईल.')
+              : tx('धान्य निवडा, मग इथे दर भरा.')}
+          </Text>
+          {grainId ? (
+            <>
+              <TextField
+                label="दर (₹)"
+                value={rateDraft}
+                onChangeText={setRateDraft}
+                keyboardType="decimal-pad"
+                placeholder="0"
+              />
+              <Button
+                label={savingRate ? 'जतन होत आहे…' : 'दर जतन करा'}
+                variant="secondary"
+                onPress={saveGrainRate}
+                disabled={savingRate}
+              />
+            </>
+          ) : null}
+        </>
+      ) : null}
       <Controller
         control={form.control}
         name="quantity"
@@ -287,7 +378,7 @@ export function FlourEntryScreen() {
         )}
       />
       <Pressable onPress={() => navigation.navigate('CustomerForm')}>
-        <Text style={styles.link}>नवीन ग्राहक</Text>
+        <Text style={styles.link}>{tx('नवीन ग्राहक')}</Text>
       </Pressable>
       <Controller
         control={form.control}
@@ -301,14 +392,7 @@ export function FlourEntryScreen() {
           />
         )}
       />
-      {formError ? <Text style={styles.error}>{formError}</Text> : null}
-      {rate == null && grainId ? (
-        <Button
-          label="दर भरा"
-          variant="secondary"
-          onPress={() => navigation.navigate('GrainRates')}
-        />
-      ) : null}
+      {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
       <Button label={entryId ? 'सुधार जतन करा' : 'जतन करा'} onPress={form.handleSubmit(submit)} />
     </FormScreen>
   );

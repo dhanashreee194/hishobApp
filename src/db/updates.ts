@@ -1,7 +1,8 @@
 import {Database, Q} from '@nozbe/watermelondb';
 import {notDeleted} from './queries';
 import {startOfDay} from '../domain/dates';
-import {MILK_RATE_ITEM_ID} from '../domain/labels';
+import type {VegetableSaleInput} from '../domain/sales';
+import {OTHER_ITEM_NAME} from './seed';
 import {
   compareMoney,
   LedgerError,
@@ -16,7 +17,7 @@ import {
 import {quantity, type StockDirection, type StockKind} from '../domain/stock';
 import {loadPartnerSettlement} from './reportData';
 import {balanceOf} from './reads';
-import {rateOn} from './rates';
+import {milkRateOn, rateOn} from './rates';
 import {
   Customer,
   CustomerLedgerEntry,
@@ -38,6 +39,7 @@ export async function updateFlourEntry(
   input: {
     date: Date;
     grainId: string;
+    otherName?: string;
     quantity: number;
     customerId: string | null;
     paidAmount: number;
@@ -45,6 +47,10 @@ export async function updateFlourEntry(
   },
 ): Promise<void> {
   const grain = await database.get<GrainMaster>('grain_masters').find(input.grainId);
+  const otherName = grain.name === OTHER_ITEM_NAME ? (input.otherName ?? '').trim() : '';
+  if (grain.name === OTHER_ITEM_NAME && !otherName) {
+    throw new LedgerError('धान्याचे नाव भरा');
+  }
   const rate = await rateOn(database, 'grain', input.grainId, input.date);
   if (rate == null) {
     throw new LedgerError('या तारखेसाठी धान्याचा दर ठरवलेला नाही');
@@ -59,7 +65,7 @@ export async function updateFlourEntry(
   }
   const pending = moneyNumber(netAmount(total, paid));
   const note = input.notes.trim();
-  const billNote = `${grain.name} ${input.quantity} ${grain.defaultUnit}`;
+  const billNote = `${otherName || grain.name} ${input.quantity} ${grain.defaultUnit}`;
   const transaction = await database.get<FlourTransaction>('flour_transactions').find(id);
   const items = await database
     .get<FlourItem>('flour_items')
@@ -90,12 +96,14 @@ export async function updateFlourEntry(
         record.unit = grain.defaultUnit;
         record.appliedRate = rate;
         record.amount = total;
+        record.customName = otherName || null;
       });
     } else {
       await database.get<FlourItem>('flour_items').create(record => {
         record.transactionId = id;
         record.grainId = grain.id;
         record.quantity = input.quantity;
+        record.customName = otherName || null;
         record.unit = grain.defaultUnit;
         record.appliedRate = rate;
         record.amount = total;
@@ -173,9 +181,9 @@ export async function updateMilkEntry(
   if (!(input.litres > 0)) {
     throw new LedgerError('लिटर शून्यापेक्षा जास्त हवे');
   }
-  const rate = await rateOn(database, 'milk', MILK_RATE_ITEM_ID, input.date);
+  const {rate} = await milkRateOn(database, supplier, input.date);
   if (rate == null) {
-    throw new LedgerError('या तारखेसाठी दूध दर ठरवलेला नाही');
+    throw new LedgerError('या पुरवठादारासाठी या तारखेला दूध दर नाही');
   }
   const amount = multiplyMoney(input.litres, rate);
   const entry = await database.get<MilkEntry>('milk_entries').find(id);
@@ -224,7 +232,7 @@ export async function updateVegetableSale(
   input: {
     date: Date;
     ownershipType: 'own' | 'shared';
-    sales: Array<{vegetableId: string; quantity: number; unit: string; saleAmount: number}>;
+    sales: VegetableSaleInput[];
   },
 ): Promise<void> {
   if (input.sales.length === 0) {
@@ -254,6 +262,9 @@ export async function updateVegetableSale(
         record.quantity = line.quantity;
         record.unit = line.unit;
         record.saleAmount = roundMoney(line.saleAmount);
+        record.appliedRate = line.appliedRate;
+        record.openingQuantity = line.openingQuantity;
+        record.remainingQuantity = line.remainingQuantity;
       });
     }
   });

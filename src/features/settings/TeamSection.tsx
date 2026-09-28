@@ -5,6 +5,7 @@ import {acceptInvite, inviteAssistant} from '../../sync/role';
 import {isCloudConfigured} from '../../sync/publicConfig';
 import {syncNow} from '../../sync/synchronize';
 import {useSyncStatus} from '../../sync/status';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts} from '../../theme';
 
 export function TeamSection() {
@@ -14,6 +15,7 @@ export function TeamSection() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const configured = isCloudConfigured();
+  const tx = useTx();
 
   async function invite() {
     setBusy(true);
@@ -31,12 +33,12 @@ export function TeamSection() {
 
   function accept() {
     Alert.alert(
-      'आमंत्रण',
-      'हे खाते त्या मालकाचे सहाय्यक होईल. क्लाउडवरील हिशोब त्या मालकाचा दिसेल.',
+      tx('आमंत्रण'),
+      tx('हे खाते त्या मालकाचे सहाय्यक होईल. क्लाउडवरील हिशोब त्या मालकाचा दिसेल.'),
       [
-        {text: 'रद्द', style: 'cancel'},
+        {text: tx('रद्द'), style: 'cancel'},
         {
-          text: 'स्वीकारा',
+          text: tx('स्वीकारा'),
           onPress: () => {
             setBusy(true);
             acceptInvite()
@@ -57,18 +59,18 @@ export function TeamSection() {
   if (!configured) {
     return (
       <Text style={styles.help}>
-        क्लाउड जोडणी नसताना एकच मालक. सहाय्यक जोडण्यासाठी फोन प्रवेश आणि SQL हवे.
+        {tx('क्लाउड जोडणी नसताना एकच मालक. सहाय्यक जोडण्यासाठी फोन प्रवेश आणि SQL हवे.')}
       </Text>
     );
   }
 
   return (
     <>
-      <Text style={styles.heading}>वापरकर्ते</Text>
+      <Text style={styles.heading}>{tx('वापरकर्ते')}</Text>
       <Text style={styles.help}>
         {role === 'assistant'
-          ? 'तुम्ही सहाय्यक आहात. बॅकअप, रिस्टोअर, भागीदार बदल आणि बाकी स्मरण मालकाकडे आहेत.'
-          : 'तुम्ही मालक आहात. सहाय्यक नोंदी करू शकतो. बॅकअप आणि भागीदार बदल तुमच्याकडे राहतात.'}
+          ? tx('तुम्ही सहाय्यक आहात. बॅकअप, रिस्टोअर, भागीदार बदल आणि बाकी स्मरण मालकाकडे आहेत.')
+          : tx('तुम्ही मालक आहात. सहाय्यक नोंदी करू शकतो. बॅकअप आणि भागीदार बदल तुमच्याकडे राहतात.')}
       </Text>
       {phone && role === 'owner' ? (
         <>
@@ -83,7 +85,7 @@ export function TeamSection() {
           <Button label="आमंत्रण स्वीकारा" variant="secondary" onPress={accept} disabled={busy} />
         </>
       ) : null}
-      {message ? <Text style={styles.message}>{message}</Text> : null}
+      {message ? <Text style={styles.message}>{tx(message)}</Text> : null}
     </>
   );
 }

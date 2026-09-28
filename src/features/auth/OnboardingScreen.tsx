@@ -4,6 +4,7 @@ import {Button} from '../../components';
 import {FormScreen} from '../../components/FormScreen';
 import {persistStatus} from '../../sync/synchronize';
 import {useSyncStatus} from '../../sync/status';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, spacing} from '../../theme';
 import {PhoneAuthForm} from './PhoneAuthForm';
 
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function OnboardingScreen({onContinue}: Props) {
+  const tx = useTx();
   async function skip() {
     useSyncStatus.getState().patch({skippedAuth: true});
     await persistStatus();
@@ -22,12 +24,12 @@ export function OnboardingScreen({onContinue}: Props) {
     <FormScreen>
       <View style={styles.stack}>
       <View style={styles.header}>
-        <Text style={styles.title}>माझा हिशोब</Text>
-        <Text style={styles.subtitle}>फोन नंबर आणि OTP ने प्रवेश करा.</Text>
+        <Text style={styles.title}>{tx('माझा हिशोब')}</Text>
+        <Text style={styles.subtitle}>{tx('फोन नंबर आणि OTP ने प्रवेश करा.')}</Text>
       </View>
       <PhoneAuthForm onSignedIn={onContinue} />
       <Button label="ऑफलाइन सुरू ठेवा" variant="secondary" onPress={skip} />
-      <Text style={styles.note}>सिंक अयशस्वी झाले तरी स्थानिक नोंदी थांबत नाहीत.</Text>
+      <Text style={styles.note}>{tx('सिंक अयशस्वी झाले तरी स्थानिक नोंदी थांबत नाहीत.')}</Text>
       </View>
     </FormScreen>
   );

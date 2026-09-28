@@ -22,6 +22,7 @@ import {getSupabase} from '../../sync/client';
 import {isCloudConfigured} from '../../sync/publicConfig';
 import {syncNow} from '../../sync/synchronize';
 import {formatStamp, useSyncStatus} from '../../sync/status';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, spacing} from '../../theme';
 
 export function SettingsScreen() {
@@ -41,6 +42,7 @@ export function SettingsScreen() {
   const [pinTarget, setPinTarget] = useState<{kind: 'cloud' | 'local'; path: string} | null>(null);
   const configured = isCloudConfigured();
   const assistant = useSyncStatus(state => state.role === 'assistant');
+  const tx = useTx();
 
   const refreshFiles = useCallback(() => {
     listLocalBackups()
@@ -93,12 +95,12 @@ export function SettingsScreen() {
   function confirmRestore(file: BackupFile, kind: 'cloud' | 'local') {
     const target = {kind, path: file.path};
     Alert.alert(
-      'रिस्टोअर',
-      `${file.name} मधून स्थानिक हिशोब बदलेल. चालू नोंदी या प्रतमध्ये नसतील तर त्या जाऊ शकतात.`,
+      tx('रिस्टोअर'),
+      `${file.name} ${tx('मधून स्थानिक हिशोब बदलेल. चालू नोंदी या प्रतमध्ये नसतील तर त्या जाऊ शकतात.')}`,
       [
-        {text: 'रद्द', style: 'cancel'},
+        {text: tx('रद्द'), style: 'cancel'},
         {
-          text: 'रिस्टोअर',
+          text: tx('रिस्टोअर'),
           style: 'destructive',
           onPress: () => runRestore(target),
         },
@@ -127,9 +129,11 @@ export function SettingsScreen() {
       <TeamSection />
       {assistant ? null : (
         <>
-          <Text style={styles.heading}>स्थानिक बॅकअप</Text>
+          <Text style={styles.heading}>{tx('स्थानिक बॅकअप')}</Text>
           <Text style={styles.help}>
-            फाइल एन्क्रिप्टेड असते. हाच फोन किल्लीने उघडतो. पिन सेट असेल तर दुसऱ्या फोनवर तो पिन लागतो.
+            {tx(
+              'फाइल एन्क्रिप्टेड असते. हाच फोन किल्लीने उघडतो. पिन सेट असेल तर दुसऱ्या फोनवर तो पिन लागतो.',
+            )}
           </Text>
           <Button
             label={backingUp ? 'बॅकअप होत आहे…' : 'स्थानिक बॅकअप फाइल'}
@@ -147,20 +151,27 @@ export function SettingsScreen() {
           ))}
         </>
       )}
-      <Text style={styles.heading}>क्लाउड</Text>
+      <Text style={styles.heading}>{tx('क्लाउड')}</Text>
       <View style={styles.card}>
-        <Text style={styles.line}>शेवटचा सिंक: {syncing ? 'चालू आहे…' : formatStamp(lastSyncedAt)}</Text>
         <Text style={styles.line}>
-          शेवटचा बॅकअप: {backingUp ? 'चालू आहे…' : formatStamp(lastBackupAt)}
+          {tx('शेवटचा सिंक')}: {syncing ? tx('चालू आहे…') : tx(formatStamp(lastSyncedAt))}
         </Text>
-        {phone ? <Text style={styles.line}>फोन: {phone}</Text> : null}
-        {syncError ? <Text style={styles.error}>{syncError}</Text> : null}
-        {backupError ? <Text style={styles.error}>{backupError}</Text> : null}
+        <Text style={styles.line}>
+          {tx('शेवटचा बॅकअप')}: {backingUp ? tx('चालू आहे…') : tx(formatStamp(lastBackupAt))}
+        </Text>
+        {phone ? (
+          <Text style={styles.line}>
+            {tx('फोन:')} {phone}
+          </Text>
+        ) : null}
+        {syncError ? <Text style={styles.error}>{tx(syncError)}</Text> : null}
+        {backupError ? <Text style={styles.error}>{tx(backupError)}</Text> : null}
       </View>
       {!configured ? (
         <Text style={styles.help}>
-          क्लाउड जोडणी सेट नाही. अॅप पूर्ण ऑफलाइन चालतो. Supabase URL आणि anon key
-          src/sync/publicConfig.ts मध्ये टाका.
+          {tx(
+            'क्लाउड जोडणी सेट नाही. अॅप पूर्ण ऑफलाइन चालतो. Supabase URL आणि anon key src/sync/publicConfig.ts मध्ये टाका.',
+          )}
         </Text>
       ) : null}
       {configured && !phone ? <PhoneAuthForm onSignedIn={refreshFiles} /> : null}
@@ -177,9 +188,9 @@ export function SettingsScreen() {
           <Button label="बाहेर पडा" variant="secondary" onPress={signOut} />
           {assistant ? null : (
             <>
-              <Text style={styles.heading}>रिस्टोअर</Text>
-              {listError ? <Text style={styles.error}>{listError}</Text> : null}
-              {files.length === 0 ? <Text style={styles.help}>अजून क्लाउड बॅकअप नाही.</Text> : null}
+              <Text style={styles.heading}>{tx('रिस्टोअर')}</Text>
+              {listError ? <Text style={styles.error}>{tx(listError)}</Text> : null}
+              {files.length === 0 ? <Text style={styles.help}>{tx('अजून क्लाउड बॅकअप नाही.')}</Text> : null}
               {files.map(file => (
                 <Button
                   key={file.path}

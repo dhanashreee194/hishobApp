@@ -19,7 +19,7 @@ import {confirmDelete} from '../records/confirmDelete';
 import {loadReportSource, type ReportSource} from '../../db/reportData';
 import {recordPartnerPayment} from '../../db/writes';
 import {updatePartnerPayment} from '../../db/updates';
-import {weekdayName} from '../../domain/dates';
+import {useCopy, useTx} from '../../i18n/locale';
 import {PARTNER_BUSINESS_LABEL} from '../../domain/labels';
 import {compareMoney, LedgerError, moneyNumber, netAmount, parseNumber, sumAmounts} from '../../domain/money';
 import {settlementWindow, scopePartnerBooks, type PeriodKind} from '../../domain/reports';
@@ -50,6 +50,8 @@ export function PartnerSettlementScreen() {
   const [anchor, setAnchor] = useState(() => new Date());
   const [payDate, setPayDate] = useState(() => new Date());
   const [formError, setFormError] = useState<string | null>(null);
+  const copy = useCopy();
+  const tx = useTx();
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const source = useAsyncData(() => loadReportSource(database), EMPTY_SOURCE);
   const partners = source.data.partners;
@@ -67,6 +69,8 @@ export function PartnerSettlementScreen() {
       partner.businessType,
       source.data.sharedSales,
       source.data.sharedExpenses,
+      partner.productIds,
+      source.data.productSales,
     );
     return {
       ...settlePartner({
@@ -144,9 +148,16 @@ export function PartnerSettlementScreen() {
   return (
     <FormScreen>
       <Text style={styles.help}>
-        सामाईक निव्वळ = सामाईक विक्री − सामाईक खर्च. वाटा फक्त{' '}
-        {PARTNER_BUSINESS_LABEL[partners.find(row => row.id === partnerId)?.businessType ?? 'vegetable'] ?? 'भाजी'}{' '}
-        धंद्यात मोजला जातो.
+        {tx('सामाईक निव्वळ = सामाईक विक्री − सामाईक खर्च. वाटा फक्त')}{' '}
+        {tx(PARTNER_BUSINESS_LABEL[partners.find(row => row.id === partnerId)?.businessType ?? 'vegetable'] ?? 'भाजी')}
+        {(() => {
+          const chosen = partners.find(row => row.id === partnerId);
+          const names = (chosen?.productIds ?? [])
+            .map(id => source.data.productNames[id])
+            .filter(Boolean);
+          return names.length ? ` · ${names.join(', ')}` : ` · ${tx('संपूर्ण धंदा')}`;
+        })()}{' '}
+        {tx('धंद्यात मोजला जातो.')}
       </Text>
       <SelectField
         label="भागीदार"
@@ -160,7 +171,7 @@ export function PartnerSettlementScreen() {
       />
       <Segmented label="काळ" value={period} onChange={setPeriod} options={PERIODS} />
       <DateField value={anchor} onChange={setAnchor} />
-      <Text style={styles.day}>{weekdayName(anchor)}</Text>
+      <Text style={styles.day}>{copy.weekdays[anchor.getDay()]}</Text>
       {figures ? (
         <>
           <DerivedAmount label="सामाईक विक्री" amount={moneyNumber(figures.sharedSales)} tone="in" />
@@ -173,12 +184,12 @@ export function PartnerSettlementScreen() {
           <DerivedAmount
             label="भागीदाराचा वाटा"
             amount={moneyNumber(figures.partnerShare)}
-            hint={`${figures.sharePercent}% × सामाईक निव्वळ = ${formatExactRupees(figures.partnerShare)}`}
+            hint={`${figures.sharePercent}% × ${tx('सामाईक निव्वळ')} = ${formatExactRupees(figures.partnerShare)}`}
           />
           <DerivedAmount
             label="मालकाचा वाटा"
             amount={moneyNumber(figures.ownerShare)}
-            hint={`निव्वळ वजा भागीदाराचा वाटा = ${formatExactRupees(figures.ownerShare)}`}
+            hint={`${tx('निव्वळ')} ${tx('वजा')} ${tx('भागीदाराचा वाटा')} = ${formatExactRupees(figures.ownerShare)}`}
           />
           <DerivedAmount
             label="नोंदलेली पेमेंट्स"
@@ -189,16 +200,16 @@ export function PartnerSettlementScreen() {
             label="देय बाकी"
             amount={moneyNumber(figures.remainingPayable)}
             tone={compareMoney(figures.remainingPayable, 0) > 0 ? 'out' : 'in'}
-            hint={`भागीदाराचा वाटा वजा पेमेंट = ${formatExactRupees(figures.remainingPayable)}`}
+            hint={`${tx('भागीदाराचा वाटा')} ${tx('वजा')} ${tx('पेमेंट')} = ${formatExactRupees(figures.remainingPayable)}`}
           />
         </>
       ) : (
-        <Text style={styles.help}>भागीदार निवडल्यावर हिशोब दिसेल.</Text>
+        <Text style={styles.help}>{tx('भागीदार निवडल्यावर हिशोब दिसेल.')}</Text>
       )}
       {canPay ? (
         <>
           <Text style={styles.section}>
-            {editingPaymentId ? 'पेमेंट सुधारा' : 'पेमेंट नोंदवा'}
+            {editingPaymentId ? tx('पेमेंट सुधारा') : tx('पेमेंट नोंदवा')}
           </Text>
           <DateField label="पेमेंट तारीख" value={payDate} onChange={setPayDate} />
           <Controller
@@ -226,16 +237,16 @@ export function PartnerSettlementScreen() {
               <TextField label="टीप" value={field.value} onChangeText={field.onChange} />
             )}
           />
-          {formError ? <Text style={styles.error}>{formError}</Text> : null}
+          {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
           <Button
             label={editingPaymentId ? 'सुधार जतन करा' : 'पेमेंट जतन करा'}
             onPress={form.handleSubmit(submit)}
           />
         </>
       ) : null}
-      <Text style={styles.section}>या काळातील पेमेंट्स</Text>
+      <Text style={styles.section}>{tx('या काळातील पेमेंट्स')}</Text>
       {(figures?.payments ?? []).length === 0 ? (
-        <Text style={styles.help}>अजून पेमेंट नाही.</Text>
+        <Text style={styles.help}>{tx('अजून पेमेंट नाही.')}</Text>
       ) : null}
       {(figures?.payments ?? []).map(payment => (
         <RecordCard
@@ -263,6 +274,8 @@ const EMPTY_SOURCE: ReportSource = {
   vegetableExpenses: [],
   sharedSales: [],
   sharedExpenses: [],
+  productSales: [],
+  productNames: {},
   ledger: [],
   partners: [],
   payments: [],

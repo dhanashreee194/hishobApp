@@ -1,7 +1,7 @@
 import {Database} from '@nozbe/watermelondb';
 import {notDeleted} from './queries';
 import {isSameDay} from '../domain/dates';
-import {MILK_RATE_ITEM_ID, businessLabel} from '../domain/labels';
+import {MILK_RATE_ITEM_ID, businessLabel, flourDisplayName} from '../domain/labels';
 import {
   balanceFromEntries,
   businessNet,
@@ -248,7 +248,10 @@ export async function loadRecent(database: Database): Promise<RecentItem[]> {
       date: sale.date.getTime(),
       title: 'भाजी विक्री',
       subtitle: (itemsBySale.get(sale.id) ?? [])
-        .map(item => vegetableName.get(item.vegetableId) ?? 'भाजी')
+        .map(
+          item =>
+            `${vegetableName.get(item.vegetableId) ?? 'भाजी'} · ${item.quantity} ${item.unit}`,
+        )
         .join(', '),
       amount: sale.totalAmount,
       tone: 'in' as const,
@@ -262,7 +265,11 @@ export async function loadRecent(database: Database): Promise<RecentItem[]> {
         date: txn.date.getTime(),
         title: 'गिरणी',
         subtitle: [
-          lines.map(item => grainName.get(item.grainId) ?? 'धान्य').join(', '),
+          lines
+            .map(item =>
+              flourDisplayName(grainName.get(item.grainId) ?? 'धान्य', item.customName),
+            )
+            .join(', '),
           txn.customerId ? customerName.get(txn.customerId) : null,
         ]
           .filter(Boolean)
@@ -331,7 +338,9 @@ export async function loadFlourList(database: Database): Promise<FlourListItem[]
         id: txn.id,
         date: txn.date.getTime(),
         customerName: txn.customerId ? (customerName.get(txn.customerId) ?? null) : null,
-        grainName: lines.map(item => grainName.get(item.grainId) ?? 'धान्य').join(', '),
+        grainName: lines
+          .map(item => flourDisplayName(grainName.get(item.grainId) ?? 'धान्य', item.customName))
+          .join(', '),
         quantity: first?.quantity ?? 0,
         unit: first?.unit ?? '',
         totalAmount: txn.totalAmount,
@@ -435,7 +444,10 @@ export async function loadVegetableActivity(
       date: sale.date.getTime(),
       title: sale.ownershipType === 'shared' ? 'सामाईक विक्री' : 'स्वतःची विक्री',
       subtitle: (itemsBySale.get(sale.id) ?? [])
-        .map(item => vegetableName.get(item.vegetableId) ?? 'भाजी')
+        .map(
+          item =>
+            `${vegetableName.get(item.vegetableId) ?? 'भाजी'} · ${item.quantity} ${item.unit}`,
+        )
         .join(', '),
       amount: sale.totalAmount,
       tone: 'in' as const,
@@ -456,6 +468,37 @@ export async function loadVegetableActivity(
       })),
   ];
   return byDateDesc(activity);
+}
+
+export type VegetableSaleLine = {
+  saleId: string;
+  date: number;
+  vegetableId: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  saleAmount: number;
+};
+
+export async function loadVegetableSaleLines(database: Database): Promise<VegetableSaleLine[]> {
+  const [sales, items, vegetables] = await Promise.all([
+    database.get<VegetableSale>('vegetable_sales').query(notDeleted()).fetch(),
+    database.get<VegetableSaleItem>('vegetable_sale_items').query(notDeleted()).fetch(),
+    database.get<VegetableMaster>('vegetable_masters').query().fetch(),
+  ]);
+  const saleDate = new Map(sales.map(sale => [sale.id, sale.date.getTime()]));
+  const vegetableName = new Map(vegetables.map(row => [row.id, row.name]));
+  return items
+    .filter(item => saleDate.has(item.saleId))
+    .map(item => ({
+      saleId: item.saleId,
+      date: saleDate.get(item.saleId) ?? 0,
+      vegetableId: item.vegetableId,
+      name: vegetableName.get(item.vegetableId) ?? 'भाजी',
+      quantity: item.quantity,
+      unit: item.unit,
+      saleAmount: item.saleAmount,
+    }));
 }
 
 export function balanceOf(

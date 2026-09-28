@@ -13,7 +13,8 @@ import {
   sumMoney,
 } from '../money';
 import {settlePartner} from '../settlement';
-import {buildFlourReport, buildUdhariReport, buildVegetableReport, scopePartnerBooks} from '../reports';
+import {buildFlourReport, buildUdhariReport, buildVegetableReport, overloadedScopes, scopePartnerBooks} from '../reports';
+import {amountFromQuantity, soldFromStock, vegetableDayTotals} from '../sales';
 
 describe('line amount', () => {
   it('multiplies quantity by rate and rounds half-up to paise', () => {
@@ -174,5 +175,55 @@ describe('report totals', () => {
     expect(vegetable.expenses.map(row => row.amount)).toEqual(['40.00']);
     expect(flour.sales).toEqual([]);
     expect(flour.expenses.map(row => row.amount)).toEqual(['90.00']);
+  });
+
+  it('limits a product partner to those sales and leaves other businesses alone', () => {
+    const day = new Date(2026, 8, 24).getTime();
+    const sales = [{date: day, amount: '200.00'}];
+    const expenses = [{date: day, amount: '40.00', businessType: 'vegetable'}];
+    const productSales = [
+      {date: day, amount: '50.00', productId: 'onion', businessType: 'vegetable'},
+      {date: day, amount: '150.00', productId: 'cabbage', businessType: 'vegetable'},
+      {date: day, amount: '80.00', productId: 'wheat', businessType: 'flour'},
+    ];
+    const onion = scopePartnerBooks('vegetable', sales, expenses, ['onion'], productSales);
+    expect(onion.sales.map(row => row.amount)).toEqual(['50.00']);
+    expect(onion.expenses).toEqual([]);
+    const wheat = scopePartnerBooks('flour', sales, expenses, ['wheat'], productSales);
+    expect(wheat.sales.map(row => row.amount)).toEqual(['80.00']);
+    expect(wheat.expenses).toEqual([]);
+    expect(
+      overloadedScopes([
+        {businessType: 'vegetable', sharePercent: '60.00', active: true, productIds: []},
+        {businessType: 'flour', sharePercent: '60.00', active: true, productIds: []},
+      ]),
+    ).toEqual([]);
+    expect(
+      overloadedScopes([
+        {businessType: 'vegetable', sharePercent: '60.00', active: true, productIds: []},
+        {businessType: 'vegetable', sharePercent: '50.00', active: true, productIds: ['onion']},
+      ]).some(row => row.productId === 'onion'),
+    ).toBe(true);
+  });
+});
+
+describe('vegetable sale quantity', () => {
+  it('sells the difference between opening stock and what is left', () => {
+    expect(soldFromStock('10', '4')).toBe('6.000');
+    expect(soldFromStock('4', '10')).toBeNull();
+    expect(amountFromQuantity('6', '20')).toBe(120);
+  });
+
+  it('adds the day total for each vegetable', () => {
+    expect(
+      vegetableDayTotals([
+        {name: 'कांदा', unit: 'किलो', quantity: '2', amount: '40'},
+        {name: 'कांदा', unit: 'किलो', quantity: '3', amount: '60'},
+        {name: 'कोबी', unit: 'किलो', quantity: '1', amount: '20'},
+      ]),
+    ).toEqual([
+      {name: 'कांदा', unit: 'किलो', quantity: '5', amount: '100.00'},
+      {name: 'कोबी', unit: 'किलो', quantity: '1', amount: '20.00'},
+    ]);
   });
 });

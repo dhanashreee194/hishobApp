@@ -10,6 +10,7 @@ import {
   readLock,
   setBiometricEnabled,
 } from '../../security/lock';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, spacing} from '../../theme';
 
 export function AppLockSection() {
@@ -21,6 +22,7 @@ export function AppLockSection() {
   const [nextPin, setNextPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const tx = useTx();
 
   const refresh = useCallback(() => {
     Promise.all([readLock(), biometryAvailable()])
@@ -60,10 +62,11 @@ export function AppLockSection() {
 
   return (
     <View style={styles.stack}>
-      <Text style={styles.heading}>अॅप लॉक</Text>
+      <Text style={styles.heading}>{tx('अॅप लॉक')}</Text>
       <Text style={styles.help}>
-        ऐच्छिक. पिन किंवा बोटाचा ठसा फक्त अॅप उघडताना विचारतो. आतील पाने वेगळी कुलूपबंद होत नाहीत.
-        पिन नसेल तर अॅप थेट उघडतो.
+        {tx(
+          'ऐच्छिक. पिन किंवा बोटाचा ठसा फक्त अॅप उघडताना विचारतो. आतील पाने वेगळी कुलूपबंद होत नाहीत. पिन नसेल तर अॅप थेट उघडतो.',
+        )}
       </Text>
       {enabled ? (
         <>
@@ -101,7 +104,7 @@ export function AppLockSection() {
             disabled={busy}
           />
           {!canUseBiometric ? (
-            <Text style={styles.help}>या फोनवर बोटाचा ठसा उपलब्ध नाही. पिन चालतो.</Text>
+            <Text style={styles.help}>{tx('या फोनवर बोटाचा ठसा उपलब्ध नाही. पिन चालतो.')}</Text>
           ) : null}
         </>
       ) : (
@@ -136,7 +139,7 @@ export function AppLockSection() {
           />
         </>
       )}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error}>{tx(error)}</Text> : null}
     </View>
   );
 }

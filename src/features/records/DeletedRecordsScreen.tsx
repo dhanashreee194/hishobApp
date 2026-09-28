@@ -4,17 +4,19 @@ import {RecordCard} from '../../components';
 import {database} from '../../db';
 import {DeletedRecord, loadDeletedRecords, restoreRecord} from '../../db/deletion';
 import {useAsyncData} from '../../hooks/useAsyncData';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, formatIndianDate, spacing} from '../../theme';
 
 export function DeletedRecordsScreen() {
   const deleted = useAsyncData(() => loadDeletedRecords(database), []);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const tx = useTx();
 
   function confirmRestore(item: DeletedRecord) {
-    Alert.alert('नोंद परत आणायची?', `${item.title} पुन्हा हिशोबात दिसेल.`, [
-      {text: 'रद्द', style: 'cancel'},
+    Alert.alert(tx('नोंद परत आणायची?'), `${tx(item.title)} ${tx('पुन्हा हिशोबात दिसेल.')}`, [
+      {text: tx('रद्द'), style: 'cancel'},
       {
-        text: 'परत आणा',
+        text: tx('परत आणा'),
         onPress: () => {
           setBusyId(item.id);
           restoreRecord(database, item.table, item.id)
@@ -36,13 +38,15 @@ export function DeletedRecordsScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <Text style={styles.help}>
-            काढलेल्या आर्थिक नोंदी येथे राहतात. मालक त्या परत आणू शकतो. रक्कम आणि तारीख जशा होत्या तशा राहतात.
+            {tx(
+              'काढलेल्या आर्थिक नोंदी येथे राहतात. मालक त्या परत आणू शकतो. रक्कम आणि तारीख जशा होत्या तशा राहतात.',
+            )}
           </Text>
         }
-        ListEmptyComponent={<Text style={styles.empty}>काढलेली नोंद नाही.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>{tx('काढलेली नोंद नाही.')}</Text>}
         renderItem={({item}) => (
           <RecordCard
-            title={`${item.date ? formatIndianDate(new Date(item.date)) : 'तारीख नाही'} · ${item.title}`}
+            title={`${item.date ? formatIndianDate(new Date(item.date)) : tx('तारीख नाही')} · ${item.title}`}
             subtitle={busyId === item.id ? 'परत आणत आहे…' : item.subtitle}
             amount={item.amount ?? undefined}
             onPress={() => confirmRestore(item)}

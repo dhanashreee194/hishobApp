@@ -16,6 +16,9 @@ export class VegetableSaleItem extends FinancialModel {
   @field('quantity') quantity!: number;
   @text('unit') unit!: string;
   @field('sale_amount') saleAmount!: number;
+  @field('applied_rate') appliedRate!: number | null;
+  @field('opening_quantity') openingQuantity!: number | null;
+  @field('remaining_quantity') remainingQuantity!: number | null;
   @relation('vegetable_sales', 'sale_id') sale!: Relation<VegetableSale>;
   @relation('vegetable_masters', 'vegetable_id')
   vegetable!: Relation<VegetableMaster>;

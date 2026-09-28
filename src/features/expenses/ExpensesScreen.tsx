@@ -24,7 +24,7 @@ import {LedgerError, parseNumber} from '../../domain/money';
 import {positiveNumber} from '../../forms/fields';
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {RootStackParamList} from '../../navigation/types';
-import {weekdayName} from '../../domain/dates';
+import {useCopy, useTx} from '../../i18n/locale';
 import {colors, fonts} from '../../theme';
 
 const schema = z.object({
@@ -43,6 +43,8 @@ export function ExpensesScreen() {
   const expenseId = route.params?.expenseId;
   const [date, setDate] = useState(() => new Date());
   const [formError, setFormError] = useState<string | null>(null);
+  const copy = useCopy();
+  const tx = useTx();
   const categories = useAsyncData(() => loadCategories(database), []);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -120,7 +122,7 @@ export function ExpensesScreen() {
   return (
     <FormScreen>
       <DateField value={date} onChange={setDate} />
-      <Text style={styles.day}>{weekdayName(date)}</Text>
+      <Text style={styles.day}>{copy.weekdays[date.getDay()]}</Text>
       <Controller
         control={form.control}
         name="businessType"
@@ -128,7 +130,10 @@ export function ExpensesScreen() {
           <SelectField
             label="व्यवसाय"
             value={field.value}
-            options={Object.entries(BUSINESS_LABEL).map(([value, label]) => ({value, label}))}
+            options={Object.entries(BUSINESS_LABEL).map(([value, label]) => ({
+              value,
+              label: tx(label),
+            }))}
             onChange={value => field.onChange(value)}
           />
         )}
@@ -192,7 +197,7 @@ export function ExpensesScreen() {
           />
         )}
       />
-      {formError ? <Text style={styles.error}>{formError}</Text> : null}
+      {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
       <Button
         label={expenseId ? 'सुधार जतन करा' : 'खर्च जतन करा'}
         onPress={form.handleSubmit(submit)}

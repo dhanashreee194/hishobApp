@@ -21,6 +21,7 @@ const TABLES = [
   'flour_items',
   'milk_entries',
   'partners',
+  'partner_products',
   'partner_payments',
   'partner_settlements',
   'stock_movements',

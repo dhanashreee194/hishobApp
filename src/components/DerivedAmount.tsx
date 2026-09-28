@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, formatInr, spacing, typography} from '../theme';
 
 type Props = {
@@ -10,15 +11,16 @@ type Props = {
 };
 
 export function DerivedAmount({label, amount, hint, tone = 'neutral'}: Props) {
+  const tx = useTx();
   const color =
     tone === 'in' ? colors.success : tone === 'out' ? colors.danger : colors.text;
   return (
     <View style={styles.box}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{tx(label)}</Text>
       <Text style={[typography.amount, {color}]}>
         {amount == null ? '—' : formatInr(amount)}
       </Text>
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      {hint ? <Text style={styles.hint}>{tx(hint)}</Text> : null}
     </View>
   );
 }

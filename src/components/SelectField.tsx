@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, spacing} from '../theme';
 
 export type SelectOption = {
@@ -38,24 +39,28 @@ export function SelectField({
   allowEmpty = false,
   emptyLabel = 'नाही',
 }: Props) {
+  const tx = useTx();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const selected = options.find(option => option.value === value);
   const visible = useMemo(() => {
     const q = query.trim();
     const filtered = q
-      ? options.filter(option =>
-          `${option.label} ${option.hint ?? ''}`.includes(q),
-        )
+      ? options.filter(option => {
+          const blob = `${option.label} ${tx(option.label)} ${option.hint ?? ''} ${
+            option.hint ? tx(option.hint) : ''
+          }`.toLowerCase();
+          return blob.includes(q.toLowerCase());
+        })
       : options;
     return allowEmpty
-      ? [{value: '', label: emptyLabel}, ...filtered]
+      ? [{value: '', label: tx(emptyLabel)}, ...filtered]
       : filtered;
-  }, [allowEmpty, emptyLabel, options, query]);
+  }, [allowEmpty, emptyLabel, options, query, tx]);
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{tx(label)}</Text>
       <Pressable
         accessibilityRole="button"
         onPress={() => {
@@ -64,17 +69,17 @@ export function SelectField({
         }}
         style={styles.input}>
         <Text style={selected ? styles.value : styles.placeholder}>
-          {selected?.label ?? placeholder}
+          {selected ? tx(selected.label) : tx(placeholder)}
         </Text>
       </Pressable>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error}>{tx(error)}</Text> : null}
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
         <SafeAreaView style={styles.modal}>
-          <Text style={styles.modalTitle}>{label}</Text>
+          <Text style={styles.modalTitle}>{tx(label)}</Text>
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="शोधा"
+            placeholder={tx('शोधा')}
             placeholderTextColor={colors.textMuted}
             style={styles.search}
           />
@@ -89,13 +94,13 @@ export function SelectField({
                   setOpen(false);
                 }}
                 style={styles.row}>
-                <Text style={styles.rowLabel}>{item.label}</Text>
-                {item.hint ? <Text style={styles.hint}>{item.hint}</Text> : null}
+                <Text style={styles.rowLabel}>{tx(item.label)}</Text>
+                {item.hint ? <Text style={styles.hint}>{tx(item.hint)}</Text> : null}
               </Pressable>
             )}
           />
           <Pressable onPress={() => setOpen(false)} style={styles.close}>
-            <Text style={styles.closeLabel}>बंद करा</Text>
+            <Text style={styles.closeLabel}>{tx('निवड बंद')}</Text>
           </Pressable>
         </SafeAreaView>
       </Modal>
@@ -105,7 +110,7 @@ export function SelectField({
 
 const styles = StyleSheet.create({
   field: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   label: {
     fontFamily: fonts.medium,

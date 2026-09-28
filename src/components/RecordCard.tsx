@@ -1,5 +1,6 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, formatInr, spacing} from '../theme';
 import {useCopy} from '../i18n/locale';
 
@@ -27,18 +28,19 @@ export function RecordCard({
   onDelete,
 }: Props) {
   const copy = useCopy();
+  const tx = useTx();
   const color =
     tone === 'in' ? colors.success : tone === 'out' ? colors.danger : colors.text;
   const body = (
     <View style={styles.card}>
       <View style={styles.text}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={styles.title}>{tx(title)}</Text>
+        {subtitle ? <Text style={styles.subtitle}>{tx(subtitle)}</Text> : null}
       </View>
       {amount != null ? (
         <View style={styles.amountWrap}>
           <Text style={[styles.amount, {color}]}>{formatInr(amount)}</Text>
-          {amountHint ? <Text style={styles.hint}>{amountHint}</Text> : null}
+          {amountHint ? <Text style={styles.hint}>{tx(amountHint)}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -120,14 +122,15 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   block: {
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
   action: {
-    minHeight: 44,
+    flex: 1,
+    minHeight: 48,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',

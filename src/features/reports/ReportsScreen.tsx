@@ -16,7 +16,6 @@ import {database} from '../../db';
 import {loadReportSource, loadSearchIndex, type ReportSource} from '../../db/reportData';
 import {startOfDay} from '../../domain/dates';
 import {PARTNER_BUSINESS_LABEL} from '../../domain/labels';
-import {compareMoney, sumAmounts} from '../../domain/money';
 import {
   buildDairyReport,
   buildFlourReport,
@@ -24,6 +23,7 @@ import {
   buildUdhariReport,
   buildVegetableReport,
   reportHasMovement,
+  overloadedScopes,
   scopePartnerBooks,
   type BuiltReport,
   type PeriodKind,
@@ -35,7 +35,7 @@ import {colors, fonts, formatExactRupees, spacing} from '../../theme';
 import {chartSeries} from './chartSeries';
 import {exportReportCsv, exportReportPdf} from './exportReport';
 import {useSyncStatus} from '../../sync/status';
-import {headerIn, useCopy, useLocale} from '../../i18n/locale';
+import {headerIn, useCopy, useLocale, useTx} from '../../i18n/locale';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList>,
@@ -51,6 +51,8 @@ const EMPTY_SOURCE: ReportSource = {
   vegetableExpenses: [],
   sharedSales: [],
   sharedExpenses: [],
+  productSales: [],
+  productNames: {},
   ledger: [],
   partners: [],
   payments: [],
@@ -61,6 +63,7 @@ const EMPTY_INDEX: SearchIndex = {customers: [], flour: [], milk: [], vegetables
 export function ReportsScreen() {
   const navigation = useNavigation<Nav>();
   const copy = useCopy();
+  const tx = useTx();
   const locale = useLocale(state => state.locale);
   const modules: Array<{value: ModuleId; label: string}> = [
     {value: 'flour', label: copy.mill},
@@ -97,9 +100,7 @@ export function ReportsScreen() {
     setPartnerId(next.id);
   }, [partnerId, source.data.partners]);
 
-  const shareTotal = sumAmounts(
-    source.data.partners.filter(row => row.active).map(row => row.sharePercent),
-  );
+  const overflows = overloadedScopes(source.data.partners);
   const report = useMemo(
     () =>
       buildModuleReport(
@@ -110,8 +111,9 @@ export function ReportsScreen() {
         partnerId,
         partner?.businessType ?? 'vegetable',
         partner?.sharePercent ?? '0',
+        partner?.productIds ?? [],
       ),
-    [source.data, module, period, anchor, partnerId, partner?.sharePercent, partner?.businessType],
+    [source.data, module, period, anchor, partnerId, partner?.sharePercent, partner?.businessType, partner?.productIds],
   );
   const hits = useMemo(
     () =>
@@ -183,8 +185,8 @@ export function ReportsScreen() {
       </View>
       {hits.map(hit => (
         <Pressable key={hit.module} onPress={() => openHit(hit)} style={styles.hit}>
-          <Text style={styles.hitTitle}>{hit.title}</Text>
-          <Text style={styles.hitDetail}>{hit.detail}</Text>
+          <Text style={styles.hitTitle}>{tx(hit.title)}</Text>
+          <Text style={styles.hitDetail}>{tx(hit.detail)}</Text>
         </Pressable>
       ))}
       {assistant ? null : (
@@ -225,10 +227,10 @@ export function ReportsScreen() {
         <Button label={copy.previous} variant="secondary" onPress={() => shift(-1)} style={styles.action} />
         <Button label={copy.next} variant="secondary" onPress={() => shift(1)} style={styles.action} />
       </View>
-      <Text style={styles.period}>{report.periodLabel}</Text>
+      <Text style={styles.period}>{tx(report.periodLabel)}</Text>
       {module === 'partner' ? (
         source.data.partners.length === 0 ? (
-          <Text style={styles.empty}>आधी भागीदार जोडा. वाटा टक्केवारी मास्टरमध्ये ठेवा.</Text>
+          <Text style={styles.empty}>{tx('आधी भागीदार जोडा. वाटा टक्केवारी मास्टरमध्ये ठेवा.')}</Text>
         ) : (
           <SelectField
             label="भागीदार"
@@ -237,16 +239,27 @@ export function ReportsScreen() {
               value: row.id,
               label: row.name,
               hint: row.active
-                ? `${PARTNER_BUSINESS_LABEL[row.businessType] ?? 'भाजी'} · ${row.sharePercent}%`
+                ? `${PARTNER_BUSINESS_LABEL[row.businessType] ?? 'भाजी'} · ${
+                    row.productIds.length
+                      ? row.productIds.map(id => source.data.productNames[id] ?? id).join(', ')
+                      : 'संपूर्ण धंदा'
+                  } · ${row.sharePercent}%`
                 : 'बंद',
             }))}
             onChange={setPartnerId}
           />
         )
       ) : null}
-      {module === 'partner' && compareMoney(shareTotal, 100) > 0 ? (
-        <Text style={styles.warn}>सक्रिय भागीदारांचा एकूण वाटा {shareTotal}% आहे. १००% पेक्षा जास्त.</Text>
-      ) : null}
+      {module === 'partner'
+        ? overflows.map(hit => (
+            <Text key={`${hit.businessType}-${hit.productId ?? 'all'}`} style={styles.warn}>
+              {tx(PARTNER_BUSINESS_LABEL[hit.businessType] ?? 'भाजी')}
+              {hit.productId ? ` · ${source.data.productNames[hit.productId] ?? ''}` : ''}
+              {' · '}
+              {tx('सक्रिय भागीदारांचा एकूण वाटा')} {hit.total}% {tx('आहे. १००% पेक्षा जास्त.')}
+            </Text>
+          ))
+        : null}
       {visibleRows.length === 0 ? (
         <Text style={styles.empty}>{copy.noRows}</Text>
       ) : (
@@ -255,12 +268,12 @@ export function ReportsScreen() {
             <TrendChart series={series} />
           </ScrollView>
           {report.headers.includes('लिटर') ? (
-            <Text style={styles.period}>आलेख रकमेचा आहे. लिटर तक्त्यात आहेत.</Text>
+            <Text style={styles.period}>{tx('आलेख रकमेचा आहे. लिटर तक्त्यात आहेत.')}</Text>
           ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View>
               <View style={styles.row}>
-                <Text style={[styles.cell, styles.head, styles.labelCell]}>काळ</Text>
+                <Text style={[styles.cell, styles.head, styles.labelCell]}>{tx('काळ')}</Text>
                 {report.headers.map(header => (
                   <Text key={header} style={[styles.cell, styles.head]}>
                     {headerIn(locale, header)}
@@ -269,7 +282,7 @@ export function ReportsScreen() {
               </View>
               {visibleRows.map(row => (
                 <View key={row.key} style={styles.row}>
-                  <Text style={[styles.cell, styles.labelCell]}>{row.label}</Text>
+                  <Text style={[styles.cell, styles.labelCell]}>{tx(row.label)}</Text>
                   {row.cells.map((cell, index) => (
                     <Text key={`${row.key}-${report.headers[index]}`} style={styles.cell}>
                       {report.headers[index] === 'लिटर' ? cell : formatExactRupees(cell)}
@@ -297,7 +310,7 @@ export function ReportsScreen() {
           style={styles.action}
         />
       </View>
-      {exportMessage ? <Text style={styles.period}>{exportMessage}</Text> : null}
+      {exportMessage ? <Text style={styles.period}>{tx(exportMessage)}</Text> : null}
     </ScrollView>
   );
 }
@@ -310,6 +323,7 @@ function buildModuleReport(
   partnerId: string,
   businessType: string,
   sharePercent: string,
+  productIds: string[],
 ): BuiltReport {
   if (module === 'flour') {
     return buildFlourReport(source.flour, period, anchor);
@@ -325,7 +339,13 @@ function buildModuleReport(
   }
   return buildPartnerReport(
     {
-      ...scopePartnerBooks(businessType, source.sharedSales, source.sharedExpenses),
+      ...scopePartnerBooks(
+        businessType,
+        source.sharedSales,
+        source.sharedExpenses,
+        productIds,
+        source.productSales,
+      ),
       payments: source.payments
         .filter(row => row.partnerId === partnerId)
         .map(row => ({date: row.date, amount: row.amount})),

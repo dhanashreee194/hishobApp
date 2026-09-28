@@ -5,6 +5,7 @@ import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {z} from 'zod';
 import {Button, FormScreen, TextField} from '../../components';
 import {requiredName} from '../../forms/fields';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, spacing} from '../../theme';
 
 const schema = z.object({
@@ -35,6 +36,7 @@ export function NameMasterScreen({showUnit, rows, onSave, onToggle}: Props) {
     mode: 'onChange',
   });
   const [editing, setEditing] = React.useState<string | null>(null);
+  const tx = useTx();
 
   useEffect(() => {
     if (!showUnit) {
@@ -56,7 +58,9 @@ export function NameMasterScreen({showUnit, rows, onSave, onToggle}: Props) {
   return (
     <FormScreen>
       <Text style={styles.help}>
-        {editing ? 'नोंद दुरुस्त करा. जुने व्यवहार तसेच राहतील.' : 'नवीन नोंद जोडा. कितीही नोंदी ठेवता येतील.'}
+        {editing
+          ? tx('नोंद दुरुस्त करा. जुने व्यवहार तसेच राहतील.')
+          : tx('नवीन नोंद जोडा. कितीही नोंदी ठेवता येतील.')}
       </Text>
       <Controller
         control={form.control}
@@ -100,7 +104,7 @@ export function NameMasterScreen({showUnit, rows, onSave, onToggle}: Props) {
         />
       ) : null}
       <View style={styles.list}>
-        {rows.length === 0 ? <Text style={styles.empty}>अजून एकही नोंद नाही.</Text> : null}
+        {rows.length === 0 ? <Text style={styles.empty}>{tx('अजून एकही नोंद नाही.')}</Text> : null}
         {rows.map(item => (
           <View key={item.id} style={styles.row}>
             <Pressable
@@ -109,14 +113,14 @@ export function NameMasterScreen({showUnit, rows, onSave, onToggle}: Props) {
                 setEditing(item.id);
                 form.reset({name: item.name, unit: item.unit || 'किलो'});
               }}>
-              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.name}>{tx(item.name)}</Text>
               <Text style={styles.meta}>
-                {showUnit ? item.unit : 'मजुरी'}
-                {item.active ? '' : ' · बंद'}
+                {showUnit ? tx(item.unit) : tx('मजुरी')}
+                {item.active ? '' : ` · ${tx('बंद')}`}
               </Text>
             </Pressable>
             <Pressable onPress={() => onToggle(item.id, !item.active)} style={styles.toggle}>
-              <Text style={styles.toggleLabel}>{item.active ? 'बंद करा' : 'सुरू करा'}</Text>
+              <Text style={styles.toggleLabel}>{item.active ? tx('बंद करा') : tx('सुरू करा')}</Text>
             </Pressable>
           </View>
         ))}

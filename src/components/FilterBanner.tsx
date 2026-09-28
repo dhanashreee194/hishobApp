@@ -1,5 +1,6 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, formatIndianDate, spacing} from '../theme';
 
 type Props = {
@@ -9,15 +10,16 @@ type Props = {
 };
 
 export function FilterBanner({from, to, onClear}: Props) {
+  const tx = useTx();
   if (from == null && to == null) {
     return null;
   }
-  const start = from == null ? 'सुरुवात' : formatIndianDate(new Date(from));
-  const end = to == null ? 'शेवट' : formatIndianDate(new Date(to));
+  const start = from == null ? tx('सुरुवात') : formatIndianDate(new Date(from));
+  const end = to == null ? tx('शेवट') : formatIndianDate(new Date(to));
   return (
     <Pressable onPress={onClear} style={styles.banner}>
       <Text style={styles.text}>
-        तारीख {start} – {end} · काढा
+        {tx('तारीख')} {start} – {end} · {tx('काढा')}
       </Text>
     </Pressable>
   );

@@ -125,5 +125,35 @@ export const migrations = schemaMigrations({
         ),
       ],
     },
+    {
+      toVersion: 9,
+      steps: [
+        createTable({
+          name: 'partner_products',
+          columns: [
+            {name: 'partner_id', type: 'string', isIndexed: true},
+            {name: 'product_id', type: 'string', isIndexed: true},
+            {name: 'updated_at', type: 'number'},
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 10,
+      steps: [
+        addColumns({
+          table: 'flour_items',
+          columns: [{name: 'custom_name', type: 'string', isOptional: true}],
+        }),
+        addColumns({
+          table: 'vegetable_sale_items',
+          columns: [
+            {name: 'applied_rate', type: 'number', isOptional: true},
+            {name: 'opening_quantity', type: 'number', isOptional: true},
+            {name: 'remaining_quantity', type: 'number', isOptional: true},
+          ],
+        }),
+      ],
+    },
   ],
 });

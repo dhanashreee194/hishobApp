@@ -22,25 +22,48 @@ import {
 import {database} from '../../db';
 import {VegetableSale, VegetableSaleItem} from '../../db/models';
 import {confirmDelete} from '../records/confirmDelete';
-import {loadCategories, loadVegetableActivity, loadVegetables} from '../../db/reads';
+import {loadCategories, loadVegetableActivity, loadVegetableSaleLines, loadVegetables} from '../../db/reads';
+import {rateOn, addRate} from '../../db/rates';
 import {updateVegetableSale} from '../../db/updates';
 import {saveVegetableDay} from '../../db/writes';
-import {weekdayName} from '../../domain/dates';
+import {useCopy, useTx} from '../../i18n/locale';
+import {startOfDay} from '../../domain/dates';
 import {inDateRange, includesText} from '../../domain/listFilter';
 import {OWNERSHIP_LABEL} from '../../domain/labels';
 import {LedgerError, netAmount, parseNumber, sumAmounts} from '../../domain/money';
+import {amountFromQuantity, soldFromStock, vegetableDayTotals, type VegetableSaleInput} from '../../domain/sales';
 import {positiveNumber, requiredName} from '../../forms/fields';
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {useListFilter} from '../../hooks/useListFilter';
 import {RootStackParamList, TabParamList} from '../../navigation/types';
-import {colors, fonts, formatIndianDate, spacing} from '../../theme';
+import {colors, fonts, formatIndianDate, formatInr, spacing} from '../../theme';
 
-const saleLine = z.object({
-  vegetableId: z.string().min(1, 'भाजी निवडा'),
-  quantity: positiveNumber,
-  unit: requiredName,
-  saleAmount: positiveNumber,
-});
+const saleLine = z
+  .object({
+    vegetableId: z.string().min(1, 'भाजी निवडा'),
+    unit: requiredName,
+    rate: positiveNumber,
+    entry: z.enum(['quantity', 'stock']),
+    quantity: z.string(),
+    opening: z.string(),
+    remaining: z.string(),
+  })
+  .superRefine((line, ctx) => {
+    if (line.entry === 'quantity') {
+      const qty = parseNumber(line.quantity);
+      if (qty == null || qty <= 0) {
+        ctx.addIssue({code: 'custom', message: 'प्रमाण भरा', path: ['quantity']});
+      }
+      return;
+    }
+    if (soldFromStock(line.opening, line.remaining) == null) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'सुरुवात शिल्लकपेक्षा जास्त हवी',
+        path: ['opening'],
+      });
+    }
+  });
 
 const expenseLine = z.object({
   categoryId: z.string().min(1, 'प्रकार निवडा'),
@@ -66,7 +89,38 @@ const schema = z
 
 type Values = z.infer<typeof schema>;
 
-const emptySale = {vegetableId: '', quantity: '', unit: 'किलो', saleAmount: ''};
+const emptySale = {
+  vegetableId: '',
+  unit: 'किलो',
+  rate: '',
+  entry: 'quantity' as const,
+  quantity: '',
+  opening: '',
+  remaining: '',
+};
+
+function saleInput(line: Values['sales'][number]): VegetableSaleInput | null {
+  const sold =
+    line.entry === 'stock' ? soldFromStock(line.opening, line.remaining) : line.quantity.trim();
+  if (sold == null) {
+    return null;
+  }
+  const saleAmount = amountFromQuantity(sold, line.rate);
+  const quantity = parseNumber(sold);
+  const appliedRate = parseNumber(line.rate);
+  if (saleAmount == null || quantity == null || appliedRate == null) {
+    return null;
+  }
+  return {
+    vegetableId: line.vegetableId,
+    quantity,
+    unit: line.unit,
+    saleAmount,
+    appliedRate,
+    openingQuantity: line.entry === 'stock' ? parseNumber(line.opening) : null,
+    remainingQuantity: line.entry === 'stock' ? parseNumber(line.remaining) : null,
+  };
+}
 
 export function VegetableScreen() {
   const navigation =
@@ -78,24 +132,28 @@ export function VegetableScreen() {
     >();
   const route = useRoute<RouteProp<TabParamList, 'Bhaji'>>();
   const filter = useListFilter(route.params?.filter);
+  const copy = useCopy();
+  const tx = useTx();
   const [date, setDate] = useState(() => new Date());
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const vegetables = useAsyncData(() => loadVegetables(database), []);
   const categories = useAsyncData(() => loadCategories(database), []);
   const history = useAsyncData(() => loadVegetableActivity(database), []);
+  const savedLines = useAsyncData(() => loadVegetableSaleLines(database), []);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {ownership: 'own', sales: [emptySale], expenses: []},
-    mode: 'onChange',
+    mode: 'onSubmit',
   });
   const sales = useFieldArray({control: form.control, name: 'sales'});
   const expenses = useFieldArray({control: form.control, name: 'expenses'});
   const saleValues = form.watch('sales');
   const expenseValues = form.watch('expenses');
-  const incomeExact = sumAmounts(
-    saleValues.map(line => parseNumber(line.saleAmount) ?? 0).filter(value => value > 0),
-  );
+  const preparedSales = saleValues
+    .map(saleInput)
+    .filter((line): line is VegetableSaleInput => line != null);
+  const incomeExact = sumAmounts(preparedSales.map(line => line.saleAmount));
   const expenseExact = sumAmounts(
     expenseValues.map(line => parseNumber(line.amount) ?? 0).filter(value => value > 0),
   );
@@ -148,25 +206,89 @@ export function VegetableScreen() {
         vegetableId: item.vegetableId,
         quantity: String(item.quantity),
         unit: item.unit,
-        saleAmount: String(item.saleAmount),
+        rate:
+          item.appliedRate != null && item.appliedRate > 0
+            ? String(item.appliedRate)
+            : item.quantity > 0
+              ? String(Number((item.saleAmount / item.quantity).toFixed(2)))
+              : '',
+        entry: item.openingQuantity != null ? ('stock' as const) : ('quantity' as const),
+        opening: item.openingQuantity != null ? String(item.openingQuantity) : '',
+        remaining: item.remainingQuantity != null ? String(item.remainingQuantity) : '',
       })),
       expenses: [],
     });
   }
 
+  const vegetableKey = saleValues.map(line => line.vegetableId).join('|');
+  useEffect(() => {
+    let cancelled = false;
+    saleValues.forEach((line, index) => {
+      if (!line.vegetableId || line.rate.trim()) {
+        return;
+      }
+      rateOn(database, 'vegetable', line.vegetableId, date).then(next => {
+        if (!cancelled && next != null && !form.getValues(`sales.${index}.rate`)) {
+          form.setValue(`sales.${index}.rate`, String(next));
+        }
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [date, form, vegetableKey, saleValues]);
+
+  const dayTotals = useMemo(() => {
+    const day = startOfDay(date).getTime();
+    const saved = savedLines.data.filter(
+      line => startOfDay(new Date(line.date)).getTime() === day && line.saleId !== editingSaleId,
+    );
+    return vegetableDayTotals([
+      ...saved.map(line => ({
+        name: line.name,
+        unit: line.unit,
+        quantity: String(line.quantity),
+        amount: String(line.saleAmount),
+      })),
+      ...preparedSales.map(line => ({
+        name: activeVegetables.find(item => item.id === line.vegetableId)?.name ?? 'भाजी',
+        unit: line.unit,
+        quantity: String(line.quantity),
+        amount: String(line.saleAmount),
+      })),
+    ]);
+  }, [activeVegetables, date, editingSaleId, preparedSales, savedLines.data]);
+
+  async function rememberRates(lines: VegetableSaleInput[]) {
+    await Promise.all(
+      lines.map(async line => {
+        const existing = await rateOn(database, 'vegetable', line.vegetableId, date);
+        if (existing == null && line.appliedRate > 0) {
+          await addRate(database, {
+            masterType: 'vegetable',
+            itemId: line.vegetableId,
+            rate: line.appliedRate,
+            effectiveFrom: date,
+          });
+        }
+      }),
+    );
+  }
+
   async function submit(values: Values) {
     setFormError(null);
+    const sales = values.sales.map(saleInput).filter((line): line is VegetableSaleInput => line != null);
+    if (values.sales.length > 0 && sales.length !== values.sales.length) {
+      setFormError('प्रमाण आणि विक्री दर भरा');
+      return;
+    }
     try {
+      await rememberRates(sales);
       if (editingSaleId) {
         await updateVegetableSale(database, editingSaleId, {
           date,
           ownershipType: values.ownership,
-          sales: values.sales.map(line => ({
-            vegetableId: line.vegetableId,
-            quantity: parseNumber(line.quantity) ?? 0,
-            unit: line.unit,
-            saleAmount: parseNumber(line.saleAmount) ?? 0,
-          })),
+          sales,
         });
         if (values.expenses.length > 0) {
           await saveVegetableDay(database, {
@@ -185,12 +307,7 @@ export function VegetableScreen() {
         await saveVegetableDay(database, {
           date,
           ownershipType: values.ownership,
-          sales: values.sales.map(line => ({
-            vegetableId: line.vegetableId,
-            quantity: parseNumber(line.quantity) ?? 0,
-            unit: line.unit,
-            saleAmount: parseNumber(line.saleAmount) ?? 0,
-          })),
+          sales,
           expenses: values.expenses.map(line => ({
             categoryId: line.categoryId,
             amount: parseNumber(line.amount) ?? 0,
@@ -201,6 +318,7 @@ export function VegetableScreen() {
       form.reset({ownership: 'own', sales: [emptySale], expenses: []});
       setDate(new Date());
       await history.reload();
+      await savedLines.reload();
     } catch (error) {
       setFormError(error instanceof LedgerError ? error.message : 'जतन करता आले नाही');
     }
@@ -248,7 +366,7 @@ export function VegetableScreen() {
         />
       </View>
       <DateField value={date} onChange={setDate} />
-      <Text style={styles.day}>{weekdayName(date)}</Text>
+      <Text style={styles.day}>{copy.weekdays[date.getDay()]}</Text>
       <Controller
         control={form.control}
         name="ownership"
@@ -264,7 +382,7 @@ export function VegetableScreen() {
           />
         )}
       />
-      <Text style={styles.section}>विक्री</Text>
+      <Text style={styles.section}>{tx('विक्री')}</Text>
       {sales.fields.map((row, index) => (
         <View key={row.id} style={styles.line}>
           <Controller
@@ -285,6 +403,7 @@ export function VegetableScreen() {
                   if (match) {
                     form.setValue(`sales.${index}.unit`, match.unit);
                   }
+                  form.setValue(`sales.${index}.rate`, '');
                 }}
                 error={fieldState.error?.message}
               />
@@ -292,45 +411,85 @@ export function VegetableScreen() {
           />
           <Controller
             control={form.control}
-            name={`sales.${index}.quantity`}
+            name={`sales.${index}.rate`}
             render={({field, fieldState}) => (
               <TextField
-                label="प्रमाण"
+                label="विक्री दर (₹)"
                 value={field.value}
                 onChangeText={field.onChange}
                 error={fieldState.error?.message}
                 keyboardType="decimal-pad"
+                placeholder="0"
               />
             )}
           />
           <Controller
             control={form.control}
-            name={`sales.${index}.unit`}
-            render={({field, fieldState}) => (
-              <TextField
-                label="एकक"
+            name={`sales.${index}.entry`}
+            render={({field}) => (
+              <Segmented
+                label="प्रमाण कसे?"
                 value={field.value}
-                onChangeText={field.onChange}
-                error={fieldState.error?.message}
+                onChange={field.onChange}
+                options={[
+                  {value: 'quantity', label: 'विकलेले प्रमाण'},
+                  {value: 'stock', label: 'सुरुवात − शिल्लक'},
+                ]}
               />
             )}
           />
-          <Controller
-            control={form.control}
-            name={`sales.${index}.saleAmount`}
-            render={({field, fieldState}) => (
-              <TextField
-                label="विक्री रक्कम"
-                value={field.value}
-                onChangeText={field.onChange}
-                error={fieldState.error?.message}
-                keyboardType="decimal-pad"
+          {saleValues[index]?.entry === 'stock' ? (
+            <>
+              <Controller
+                control={form.control}
+                name={`sales.${index}.opening`}
+                render={({field, fieldState}) => (
+                  <TextField
+                    label="सुरुवातीचे प्रमाण"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={fieldState.error?.message}
+                    keyboardType="decimal-pad"
+                  />
+                )}
               />
-            )}
+              <Controller
+                control={form.control}
+                name={`sales.${index}.remaining`}
+                render={({field, fieldState}) => (
+                  <TextField
+                    label="शिल्लक प्रमाण"
+                    value={field.value}
+                    onChangeText={field.onChange}
+                    error={fieldState.error?.message}
+                    keyboardType="decimal-pad"
+                  />
+                )}
+              />
+            </>
+          ) : (
+            <Controller
+              control={form.control}
+              name={`sales.${index}.quantity`}
+              render={({field, fieldState}) => (
+                <TextField
+                  label={`प्रमाण (${saleValues[index]?.unit || 'किलो'})`}
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  error={fieldState.error?.message}
+                  keyboardType="decimal-pad"
+                />
+              )}
+            />
+          )}
+          <DerivedAmount
+            label="या भाजीची रक्कम"
+            amount={saleInput(saleValues[index] ?? emptySale)?.saleAmount ?? null}
+            hint="प्रमाण × विक्री दर. ही रक्कम आपोआप आहे."
           />
           {sales.fields.length > 1 ? (
             <Pressable onPress={() => sales.remove(index)}>
-              <Text style={styles.remove}>ओळ काढा</Text>
+              <Text style={styles.remove}>{tx('ओळ काढा')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -341,7 +500,17 @@ export function VegetableScreen() {
         onPress={() => sales.append(emptySale)}
       />
       <DerivedAmount label="आजची विक्री" amount={income} tone="in" />
-      <Text style={styles.section}>खर्च</Text>
+      {dayTotals.length > 0 ? (
+        <View style={styles.line}>
+          <Text style={styles.section}>{tx('आज भाजीनिहाय')}</Text>
+          {dayTotals.map(row => (
+            <Text key={`${row.name}-${row.unit}`} style={styles.totalLine}>
+              {tx(row.name)} · {row.quantity} {tx(row.unit)} · {formatInr(Number(row.amount))}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <Text style={styles.section}>{tx('खर्च')}</Text>
       {expenses.fields.map((row, index) => (
         <View key={row.id} style={styles.line}>
           <Controller
@@ -378,7 +547,7 @@ export function VegetableScreen() {
             )}
           />
           <Pressable onPress={() => expenses.remove(index)}>
-            <Text style={styles.remove}>खर्च काढा</Text>
+            <Text style={styles.remove}>{tx('खर्च काढा')}</Text>
           </Pressable>
         </View>
       ))}
@@ -394,10 +563,12 @@ export function VegetableScreen() {
         tone={net >= 0 ? 'in' : 'out'}
         hint="ही रक्कम आपोआप आहे. जतन करण्यापूर्वी तपासा."
       />
-      {editingSaleId ? <Text style={styles.error}>ही विक्री सुधारत आहात. जतन केल्यावर जुनी ओळ बदलते.</Text> : null}
-      {formError ? <Text style={styles.error}>{formError}</Text> : null}
+      {editingSaleId ? (
+        <Text style={styles.error}>{tx('ही विक्री सुधारत आहात. जतन केल्यावर जुनी ओळ बदलते.')}</Text>
+      ) : null}
+      {formError ? <Text style={styles.error}>{tx(formError)}</Text> : null}
       {form.formState.errors.sales?.message ? (
-        <Text style={styles.error}>{form.formState.errors.sales.message}</Text>
+        <Text style={styles.error}>{tx(form.formState.errors.sales.message)}</Text>
       ) : null}
       <Button
         label={editingSaleId ? 'विक्री सुधार जतन करा' : 'दिवस जतन करा'}
@@ -413,7 +584,7 @@ export function VegetableScreen() {
           }}
         />
       ) : null}
-      <Text style={styles.section}>आधीच्या नोंदी</Text>
+      <Text style={styles.section}>{tx('आधीच्या नोंदी')}</Text>
       <SearchField
         value={filter.text}
         onChangeText={filter.setText}
@@ -447,14 +618,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     fontSize: 20,
     color: colors.text,
+    marginTop: spacing.sm,
   },
   line: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 14,
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  totalLine: {
+    fontFamily: fonts.medium,
+    fontSize: 16,
+    color: colors.text,
   },
   remove: {
     fontFamily: fonts.medium,

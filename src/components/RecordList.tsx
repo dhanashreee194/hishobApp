@@ -8,6 +8,7 @@ import {
   Text,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {useTx} from '../i18n/locale';
 import {colors, fonts, spacing} from '../theme';
 
 type Props<T> = {
@@ -19,6 +20,7 @@ type Props<T> = {
 };
 
 export function RecordList<T>({data, keyExtractor, renderItem, header, empty}: Props<T>) {
+  const tx = useTx();
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <KeyboardAvoidingView
@@ -34,7 +36,7 @@ export function RecordList<T>({data, keyExtractor, renderItem, header, empty}: P
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.content}
           ListHeaderComponent={<React.Fragment>{header}</React.Fragment>}
-          ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
+          ListEmptyComponent={<Text style={styles.empty}>{tx(empty)}</Text>}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -51,8 +53,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.md,
-    paddingBottom: spacing.xl,
+    gap: spacing.lg,
+    paddingBottom: spacing.xl * 2,
   },
   empty: {
     fontFamily: fonts.medium,

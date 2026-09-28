@@ -1,7 +1,7 @@
 import {appSchema, tableSchema} from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 8,
+  version: 10,
   tables: [
     tableSchema({
       name: 'businesses',
@@ -71,6 +71,9 @@ export const schema = appSchema({
         {name: 'quantity', type: 'number'},
         {name: 'unit', type: 'string'},
         {name: 'sale_amount', type: 'number'},
+        {name: 'applied_rate', type: 'number', isOptional: true},
+        {name: 'opening_quantity', type: 'number', isOptional: true},
+        {name: 'remaining_quantity', type: 'number', isOptional: true},
         {name: 'is_deleted', type: 'boolean', isIndexed: true},
         {name: 'created_at', type: 'number', isIndexed: true},
         {name: 'created_by', type: 'string', isOptional: true},
@@ -153,6 +156,7 @@ export const schema = appSchema({
         {name: 'unit', type: 'string'},
         {name: 'applied_rate', type: 'number'},
         {name: 'amount', type: 'number'},
+        {name: 'custom_name', type: 'string', isOptional: true},
         {name: 'is_deleted', type: 'boolean', isIndexed: true},
         {name: 'created_at', type: 'number', isIndexed: true},
         {name: 'created_by', type: 'string', isOptional: true},
@@ -180,6 +184,14 @@ export const schema = appSchema({
         {name: 'share_percent', type: 'number'},
         {name: 'business_type', type: 'string', isIndexed: true},
         {name: 'active', type: 'boolean'},
+        {name: 'updated_at', type: 'number'},
+      ],
+    }),
+    tableSchema({
+      name: 'partner_products',
+      columns: [
+        {name: 'partner_id', type: 'string', isIndexed: true},
+        {name: 'product_id', type: 'string', isIndexed: true},
         {name: 'updated_at', type: 'number'},
       ],
     }),

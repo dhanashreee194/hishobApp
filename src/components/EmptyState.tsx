@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
+import {useTx} from '../i18n/locale';
 import {colors, spacing, typography} from '../theme';
 
 type Props = {
@@ -8,10 +9,11 @@ type Props = {
 };
 
 export function EmptyState({title, message}: Props) {
+  const tx = useTx();
   return (
     <View style={styles.container}>
-      <Text style={typography.heading}>{title}</Text>
-      <Text style={[typography.body, styles.message]}>{message}</Text>
+      <Text style={typography.heading}>{tx(title)}</Text>
+      <Text style={[typography.body, styles.message]}>{tx(message)}</Text>
     </View>
   );
 }

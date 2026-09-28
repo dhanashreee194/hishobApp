@@ -148,7 +148,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.lg,
+    paddingBottom: spacing.xl * 2,
     backgroundColor: colors.background,
   },
   date: {

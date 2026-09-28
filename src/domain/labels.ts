@@ -34,3 +34,8 @@ export const MILK_RATE_ITEM_ID = 'milk';
 export function businessLabel(value: string): string {
   return BUSINESS_LABEL[value] ?? value;
 }
+
+export function flourDisplayName(storedName: string, customName?: string | null): string {
+  const custom = customName?.trim();
+  return custom || storedName;
+}

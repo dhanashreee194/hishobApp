@@ -10,6 +10,7 @@ import {useAsyncData} from '../../hooks/useAsyncData';
 import {isCloudConfigured} from '../../sync/publicConfig';
 import {sendUdhariReminders, type ReminderChannel} from '../../sync/reminders';
 import {useSyncStatus} from '../../sync/status';
+import {useLocale, useTx} from '../../i18n/locale';
 import {colors, fonts, formatExactRupees, spacing} from '../../theme';
 
 export function ReminderCard() {
@@ -17,6 +18,8 @@ export function ReminderCard() {
   const [message, setMessage] = useState<string | null>(null);
   const [sending, setSending] = useState<ReminderChannel | null>(null);
   const role = useSyncStatus(state => state.role);
+  const tx = useTx();
+  const locale = useLocale(state => state.locale);
   const configured = isCloudConfigured();
   const parsedDays = Math.min(365, Math.max(1, Number(days) || 15));
   const preview = useAsyncData(
@@ -55,10 +58,12 @@ export function ReminderCard() {
     try {
       const result = await sendUdhariReminders(parsedDays, channel);
       setMessage(
-        `${result.sent} संदेश गेले. ${result.skipped} वगळले. ${result.missingPhone} जणांचा मोबाइल नाही.`,
+        locale === 'en'
+          ? `${result.sent} sent. ${result.skipped} skipped. ${result.missingPhone} have no mobile.`
+          : `${result.sent} संदेश गेले. ${result.skipped} वगळले. ${result.missingPhone} जणांचा मोबाइल नाही.`,
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'संदेश गेले नाहीत.');
+      setMessage(error instanceof Error ? tx(error.message) : tx('संदेश गेले नाहीत.'));
     } finally {
       setSending(null);
     }
@@ -70,10 +75,11 @@ export function ReminderCard() {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>बाकी स्मरण</Text>
+      <Text style={styles.title}>{tx('बाकी स्मरण')}</Text>
       <Text style={styles.help}>
-        ज्यांची सर्वात जुनी बाकी इतक्या दिवसांपेक्षा जास्त आहे. पाठवणे क्लाउड फंक्शन करते. Twilio किंवा
-        WhatsApp गुपिते अॅपमध्ये नाहीत.
+        {tx(
+          'ज्यांची सर्वात जुनी बाकी इतक्या दिवसांपेक्षा जास्त आहे. पाठवणे क्लाउड फंक्शन करते. Twilio किंवा WhatsApp गुपिते अॅपमध्ये नाहीत.',
+        )}
       </Text>
       <TextField
         label="दिवस"
@@ -82,12 +88,12 @@ export function ReminderCard() {
         keyboardType="number-pad"
       />
       {preview.data.length === 0 ? (
-        <Text style={styles.help}>या मुदतीत कोणाची बाकी नाही.</Text>
+        <Text style={styles.help}>{tx('या मुदतीत कोणाची बाकी नाही.')}</Text>
       ) : (
         preview.data.map(customer => (
           <Text key={customer.customerId} style={styles.line}>
-            {customer.name} · {customer.daysOverdue} दिवस · {formatExactRupees(customer.balance)}
-            {customer.mobile ? '' : ' · मोबाइल नाही'}
+            {customer.name} · {customer.daysOverdue} {tx('दिवस')} · {formatExactRupees(customer.balance)}
+            {customer.mobile ? '' : tx(' · मोबाइल नाही')}
           </Text>
         ))
       )}
@@ -107,7 +113,7 @@ export function ReminderCard() {
         />
       </View>
       {!configured ? (
-        <Text style={styles.help}>क्लाउड जोडणी नसताना यादी दिसते, संदेश जात नाहीत.</Text>
+        <Text style={styles.help}>{tx('क्लाउड जोडणी नसताना यादी दिसते, संदेश जात नाहीत.')}</Text>
       ) : null}
       {message ? <Text style={styles.message}>{message}</Text> : null}
     </View>

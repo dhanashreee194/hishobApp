@@ -14,6 +14,7 @@ import {paymentStanding} from '../../domain/money';
 import {useAsyncData} from '../../hooks/useAsyncData';
 import {useListFilter} from '../../hooks/useListFilter';
 import {RootStackParamList, TabParamList} from '../../navigation/types';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, formatIndianDate, spacing} from '../../theme';
 
 export function FlourMillScreen() {
@@ -26,6 +27,7 @@ export function FlourMillScreen() {
     >();
   const route = useRoute<RouteProp<TabParamList, 'Girni'>>();
   const filter = useListFilter(route.params?.filter);
+  const tx = useTx();
   const list = useAsyncData(() => loadFlourList(database), []);
   const visible = useMemo(
     () => list.data.filter(item => matches(item, filter.text, filter.from, filter.to)),
@@ -79,8 +81,8 @@ export function FlourMillScreen() {
         ListEmptyComponent={
           <Text style={styles.empty}>
             {filter.text || filter.from != null || filter.to != null
-              ? 'या शोधात काही सापडले नाही.'
-              : 'अजून दळण्याची नोंद नाही.'}
+              ? tx('या शोधात काही सापडले नाही.')
+              : tx('अजून दळण्याची नोंद नाही.')}
           </Text>
         }
         renderItem={({item}) => {

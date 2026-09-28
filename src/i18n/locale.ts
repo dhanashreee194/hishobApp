@@ -1,5 +1,6 @@
 import {create} from 'zustand';
 import {database} from '../db';
+import {translate} from './phrases';
 
 export type Locale = 'mr' | 'en';
 
@@ -15,7 +16,7 @@ const mr = {
   switchToEnglish: 'English',
   switchToMarathi: 'मराठी',
   language: 'भाषा',
-  languageHint: 'होम, टॅब आणि शीर्षके या भाषेत बदलतात.',
+  languageHint: 'होम, टॅब, फॉर्म आणि संदेश या भाषेत बदलतात.',
   period: 'काळ',
   notYet: 'अजून नाही',
   lastSync: 'शेवटचा सिंक',
@@ -86,7 +87,7 @@ const en: typeof mr = {
   switchToEnglish: 'English',
   switchToMarathi: 'मराठी',
   language: 'Language',
-  languageHint: 'Home, tabs, and titles follow this language.',
+  languageHint: 'Every screen follows this language.',
   period: 'Period',
   notYet: 'Not yet',
   lastSync: 'Last sync',
@@ -165,6 +166,11 @@ export const useLocale = create<LocaleState>(set => ({
 export function useCopy(): Copy {
   const locale = useLocale(state => state.locale);
   return locale === 'en' ? en : mr;
+}
+
+export function useTx() {
+  const locale = useLocale(state => state.locale);
+  return (value: string | null | undefined) => translate(locale, value ?? '');
 }
 
 export function headerIn(locale: Locale, header: string): string {

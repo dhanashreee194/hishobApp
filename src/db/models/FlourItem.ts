@@ -17,6 +17,7 @@ export class FlourItem extends FinancialModel {
   @text('unit') unit!: string;
   @field('applied_rate') appliedRate!: number;
   @field('amount') amount!: number;
+  @text('custom_name') customName!: string | null;
   @relation('flour_transactions', 'transaction_id')
   transaction!: Relation<FlourTransaction>;
   @relation('grain_masters', 'grain_id') grain!: Relation<GrainMaster>;

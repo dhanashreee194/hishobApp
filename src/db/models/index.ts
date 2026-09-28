@@ -9,6 +9,7 @@ import {FlourTransaction} from './FlourTransaction';
 import {GrainMaster} from './GrainMaster';
 import {MilkEntry} from './MilkEntry';
 import {Partner} from './Partner';
+import {PartnerProduct} from './PartnerProduct';
 import {PartnerPayment} from './PartnerPayment';
 import {PartnerSettlement} from './PartnerSettlement';
 import {RateHistory} from './RateHistory';
@@ -34,6 +35,7 @@ export const modelClasses = [
   FlourItem,
   MilkEntry,
   Partner,
+  PartnerProduct,
   PartnerPayment,
   PartnerSettlement,
   StockMovement,
@@ -52,6 +54,7 @@ export {
   GrainMaster,
   MilkEntry,
   Partner,
+  PartnerProduct,
   PartnerPayment,
   PartnerSettlement,
   RateHistory,

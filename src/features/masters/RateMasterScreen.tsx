@@ -16,6 +16,7 @@ import {addRate, ratesFor} from '../../db/rates';
 import {LedgerError} from '../../domain/money';
 import {positiveNumber} from '../../forms/fields';
 import {useAsyncData} from '../../hooks/useAsyncData';
+import {useTx} from '../../i18n/locale';
 import {colors, fonts, formatIndianDate, formatInr, spacing} from '../../theme';
 import {parseNumber} from '../../domain/money';
 
@@ -36,6 +37,7 @@ type Props = {
 export function RateMasterScreen({masterType, items}: Props) {
   const [date, setDate] = useState(() => new Date());
   const [message, setMessage] = useState<string | null>(null);
+  const tx = useTx();
   const history = useAsyncData(
     () => ratesFor(database, masterType),
     [],
@@ -54,7 +56,9 @@ export function RateMasterScreen({masterType, items}: Props) {
     }
   }, [form, items]);
   const parsedRate = parseNumber(rateText);
-  const rows = history.data.filter(row => row.itemId === itemId);
+  const rows = [...history.data].sort(
+    (left, right) => right.effectiveFrom.getTime() - left.effectiveFrom.getTime(),
+  );
 
   async function submit(values: Values) {
     try {
@@ -79,7 +83,8 @@ export function RateMasterScreen({masterType, items}: Props) {
   return (
     <FormScreen>
       <Text style={styles.help}>
-        दर या तारखेपासून नवीन नोंदींना लागू होईल. जुन्या नोंदींवरचा दर तसाच राहतो.
+        {tx('दर या तारखेपासून नवीन नोंदींना लागू होईल. जुन्या नोंदींवरचा दर तसाच राहतो.')}{' '}
+        {tx('प्रत्येक जुन्या दरासोबत धान्याचे नाव, रक्कम आणि तारीख राहते.')}
       </Text>
       <Controller
         control={form.control}
@@ -112,22 +117,27 @@ export function RateMasterScreen({masterType, items}: Props) {
       <DerivedAmount
         label="जतन होणारा दर"
         amount={parsedRate != null && parsedRate > 0 ? parsedRate : null}
-        hint={`${formatIndianDate(date)} पासून. जुने व्यवहार बदलणार नाहीत.`}
+        hint={`${formatIndianDate(date)} ${tx('पासून. जुने व्यवहार बदलणार नाहीत.')}`}
       />
-      {message ? <Text style={styles.message}>{message}</Text> : null}
+      {message ? <Text style={styles.message}>{tx(message)}</Text> : null}
       <Button label="दर जतन करा" onPress={form.handleSubmit(submit)} />
-      <Text style={styles.section}>आधीचे दर</Text>
+      <Text style={styles.section}>{tx('आधीचे दर')}</Text>
       <View style={styles.list}>
-        {rows.length === 0 ? <Text style={styles.help}>अजून दर नाही.</Text> : null}
-        {rows.map(row => (
-          <View key={row.id} style={styles.row}>
-            <Text style={styles.rowTitle}>{formatInr(row.rate)}</Text>
-            <Text style={styles.help}>
-              {formatIndianDate(row.effectiveFrom)}
-              {row.effectiveTo ? ` ते ${formatIndianDate(row.effectiveTo)}` : ' पासून'}
-            </Text>
-          </View>
-        ))}
+        {rows.length === 0 ? <Text style={styles.help}>{tx('अजून दर नाही.')}</Text> : null}
+        {rows.map(row => {
+          const name = items.find(item => item.id === row.itemId)?.name ?? row.itemId;
+          return (
+            <View key={row.id} style={styles.row}>
+              <Text style={styles.rowTitle}>
+                {tx(name)} · {formatInr(row.rate)}
+              </Text>
+              <Text style={styles.help}>
+                {formatIndianDate(row.effectiveFrom)} {tx('पासून')}
+                {row.effectiveTo ? ` · ${formatIndianDate(row.effectiveTo)} ${tx('पर्यंत')}` : ''}
+              </Text>
+            </View>
+          );
+        })}
       </View>
     </FormScreen>
   );
